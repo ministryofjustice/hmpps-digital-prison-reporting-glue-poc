@@ -45,7 +45,8 @@ for rec in inputs:
     new_timestamp = datetime.datetime.strptime(global_dict["after"]["CREATE_DATETIME"][:19],
                                                '%Y-%m-%dT%H:%M:%S') + datetime.timedelta(seconds=pos_seed)
 
-    global_dict["op_ts"] = str(new_timestamp) + '.' + str(random.randint(1, 999999))
+    global_dict["op_ts"] = str(new_timestamp) + '.' + \
+        str(random.randint(1, 999999))
     global_dict["after"]["AUDIT_TIMESTAMP"] = str(new_timestamp) + '.500000'
     global_dict["after"]["CREATE_DATETIME"] = str(new_timestamp) + '.000000'
     global_dict["after"]["MODIFIED_DATETIME"] = str(new_timestamp) + '.000000'
@@ -69,5 +70,6 @@ print(out_dyf.count())
 glueContext.write_dynamic_frame.from_options(
     frame=out_dyf,
     connection_type="s3",
-    connection_options={"path": "s3://frazers-test-bucket/data/dummy/transac/OFFENDERS"},
+    connection_options={
+        "path": "s3://frazers-test-bucket/data/dummy/transac/OFFENDERS"},
     format="json")

@@ -52,7 +52,8 @@ for rec in inputs:
 
     global_dict["current_ts"] = str(datetime.datetime.now())
     global_dict["pos"] = "{:020d}".format(pos_time_delta)
-    global_dict["op_ts"] = str(new_timestamp) + '.' + str(random.randint(1, 999999))
+    global_dict["op_ts"] = str(new_timestamp) + '.' + \
+        str(random.randint(1, 999999))
     global_dict["after"] = recdict
     json_list_i.append(json.dumps(global_dict))
     # updates
@@ -65,7 +66,8 @@ for rec in inputs:
     # print(global_dict["after"]["CREATE_DATETIME"]+timedelta(seconds=24)
     new_timestamp = new_timestamp + datetime.timedelta(seconds=pos_time_delta)
 
-    global_dict["op_ts"] = str(new_timestamp) + '.' + str(random.randint(1, 999999))
+    global_dict["op_ts"] = str(new_timestamp) + '.' + \
+        str(random.randint(1, 999999))
     # global_dict["after"]["AUDIT_TIMESTAMP"] = str(new_timestamp) + '.500000'
     # global_dict["after"]["CREATE_DATETIME"] = str(new_timestamp) + '.000000'
     global_dict["after"]["MODIFIED_DATETIME"] = str(new_timestamp) + '.000000'
@@ -97,11 +99,13 @@ print("updates", out_dyf_u.count())
 glueContext.write_dynamic_frame.from_options(
     frame=out_dyf,
     connection_type="s3",
-    connection_options={"path": "s3://frazers-test-bucket/data/dummy/transac/OFFENDERS/inserts/"},
+    connection_options={
+        "path": "s3://frazers-test-bucket/data/dummy/transac/OFFENDERS/inserts/"},
     format="json")
 
 glueContext.write_dynamic_frame.from_options(
     frame=out_dyf_u,
     connection_type="s3",
-    connection_options={"path": "s3://frazers-test-bucket/data/dummy/transac/OFFENDERS/updates/"},
+    connection_options={
+        "path": "s3://frazers-test-bucket/data/dummy/transac/OFFENDERS/updates/"},
     format="json")
