@@ -9,7 +9,8 @@
 - Slack : [#hmpps-dpr-poc](https://mojdt.slack.com/archives/C03TBLUL45B)
 
 **_This repository is for POC only_**
-**_Under no circumstance should this repo be deployed to production_**
+
+**_Under no circumstance should this repo be hmpps-digital-prison-reporting-glue-poc be considered for prod environment_**
 
 #### ToDo
 
