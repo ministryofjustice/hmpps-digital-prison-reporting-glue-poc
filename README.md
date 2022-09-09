@@ -53,11 +53,11 @@ Aquire glue docker image.
 docker pull amazon/aws-glue-libs:glue_libs_3.0.0_image_01
 ```
 
-Export AWS profile as AWS_PROFILE and JUPYTER_WORKSPACE_LOCATION as <this repo>/src
+Export AWS profile as AWS_PROFILE and JUPYTER_WORKSPACE_LOCATION 
 
 ```buildoutcfg
 export AWS_PROFILE=771283872747_modernisation-platform-developer
-export JUPYTER_WORKSPACE_LOCATION=<local path to repo>>/hmpps-digital-prison-reporting-glue-poc/src/
+export JUPYTER_WORKSPACE_LOCATION=~/jupyter_workspace/
 ```
 
 Run Docker image
