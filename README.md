@@ -44,9 +44,27 @@ TBC
 
 #### Local Development or Execution
 
+## Running in Local Docker
+Aquire glue docker image.
+```buildoutcfg
+docker pull amazon/aws-glue-libs:glue_libs_3.0.0_image_01
 ```
-TBC
+Export AWS profile as AWS_PROFILE and JUPYTER_WORKSPACE_LOCATION as <this repo>/src
+
+```buildoutcfg
+export AWS_PROFILE=771283872747_modernisation-platform-developer
+export JUPYTER_WORKSPACE_LOCATION=<local path to repo>>/hmpps-digital-prison-reporting-glue-poc/src/
 ```
+Run Docker image 
+```buildoutcfg
+docker run -it -v ~/.aws:/home/glue_user/.aws -v $JUPYTER_WORKSPACE_LOCATION:/home/glue_user/workspace/jupyter_workspace/ -e AWS_PROFILE=$AWS_PROFILE -e AWS_REGION=eu-west-2 -e DISABLE_SSL=true --rm -p 4040:4040 -p 18080:18080 -p 8998:8998 -p 8888:8888 --name glue_jupyter_lab amazon/aws-glue-libs:glue_libs_3.0.0_image_01 /home/glue_user/jupyter/jupyter_start.sh
+```
+
+JupyterLab will be available at
+```buildoutcfg
+http://localhost:8888/lab
+```
+
 
 ### Notes
 
