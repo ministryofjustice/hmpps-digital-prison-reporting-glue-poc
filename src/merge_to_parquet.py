@@ -24,6 +24,16 @@ output_path = (
         + config_dict["table"]
 )
 
+write_path = (
+        config_dict["target_bucket"]
+        + "/"
+        + config_dict["target_parquet"]
+        + "/"
+        + config_dict["schema"]
+        + "/"
+        + config_dict["table"]
+)
+
 glueContext = GlueContext(SparkContext.getOrCreate())
 inputDF_i = glueContext.create_dynamic_frame_from_options(connection_type="s3", connection_options={
     "paths": ["s3://{}/inserts/".format(output_path)]}, format="json")
@@ -50,42 +60,22 @@ local_df_u = inputDF_u.toDF()
 local_df_u = local_df_u.withColumn("after_hash", hash("after")).withColumn("before_hash", hash("before")).drop(
     col("tokens"))
 
-local_df_u.select(col("table"),
-                  col("op_type"),
-                  col("op_ts"),
-                  col("current_ts"),
-                  col("pos"),
-                  col("after.offender_id"),
-                  col("after_hash"),
-                  col("before_hash"),
-                  col("after.first_name"),
-                  col("after.last_name"),
-                  col("after.title")
-                  ).show(3)
-
 inputDF_d = glueContext.create_dynamic_frame_from_options(connection_type="s3", connection_options={
     "paths": ["s3://{}/deletes/".format(output_path)]}, format="json")
 local_df_d = inputDF_d.toDF()
 
 local_df_d = local_df_d.withColumn("before_hash", hash("before")).drop(col("tokens"))
 
-local_df_d.select(col("table"),
-                  col("op_type"),
-                  col("op_ts"),
-                  col("current_ts"),
-                  col("pos"),
-                  col("before.offender_id"),
-                  col("before_hash"),
-                  col("before"),  # .offender_id"),
-                  # col("before.first_name"),
-                  # col("before.last_name"),
-                  # col("before.title")
-                  ).show(3)
-
 local_df_out = local_df_i.unionByName(local_df_u, allowMissingColumns=True).unionByName(local_df_d,
                                                                                         allowMissingColumns=True)
 
+local_df_out = local_df_out.withColumn("date", substring(col("op_ts"), 1, 10)).withColumn("time",
+                                                                                          substring(col("op_ts"), 12,
+                                                                                                    5))
+
 local_df_out.select(col("table"),
+                    col("date"),
+                    col("time"),
                     col("op_type"),
                     col("pos"),
                     col("before.offender_id"),
@@ -94,5 +84,14 @@ local_df_out.select(col("table"),
                     col("after_hash"),
 
                     ).filter(
-    (col("before.offender_id").isin({127, 128})) | (col("after.offender_id").isin({127, 128}))).show(10)
+    (col("before.offender_id").isin({127, 128, 129})) | (col("after.offender_id").isin({127, 128, 129}))).show(10)
 
+out_dyf = DynamicFrame.fromDF(local_df_out, glueContext, "out_dyf")
+
+glueContext.write_dynamic_frame.from_options(
+    frame=out_dyf,
+    connection_type="s3",
+    connection_options={"path": "s3://{}/".format(write_path), "partitionKeys": ["date", "time"]},
+
+    format="parquet",
+)
