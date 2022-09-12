@@ -26,7 +26,7 @@ output_path = (
 
 glueContext = GlueContext(SparkContext.getOrCreate())
 inputDF = glueContext.create_dynamic_frame_from_options(connection_type="s3", connection_options={
-    "paths": ["s3://{}".format(output_path)]}, format="json")
+    "paths": ["s3://{}/updates/".format(output_path)]}, format="json")
 local_df = inputDF.toDF()
 
 
@@ -37,5 +37,6 @@ local_df.select(col("table"),
                 col("pos"),
                 col("after.offender_id"),
                 col("after.first_name"),
-                col("after.last_name")
+                col("after.last_name"),
+                col("after.title")
                 ).show()
