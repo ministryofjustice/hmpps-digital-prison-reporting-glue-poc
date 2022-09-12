@@ -4,15 +4,29 @@ from awsglue.dynamicframe import DynamicFrame
 from pyspark.sql.functions import *
 import json
 
-import datetime
-import random
+config_dict = dict(
+    source_bucket="dpr-demo-development-20220906101710889000000001",
+    target_bucket="dpr-demo-development-20220906101710889000000001",
+    source="data/dummy/source/OFFENDERS_202209061845.json",
+    target_json="data/dummy/kinesis/transac/json/",
+    target_parquet="data/dummy/kinesis/transac/parquet/",
+    schema="oms_owner",
+    table="offenders",
+)
 
-pos_seed = 3000
-
+output_path = (
+    config_dict["target_bucket"]
+    + "/"
+    + config_dict["target_json"]
+    + "/"
+    + config_dict["schema"]
+    + "/"
+    + config_dict["table"]
+)
 
 glueContext = GlueContext(SparkContext.getOrCreate())
 inputDF = glueContext.create_dynamic_frame_from_options(connection_type="s3", connection_options={
-    "paths": ["s3://dpr-demo-development-20220906101710889000000001/dummy/kinesis/transac/parquet/OMS_OWNER/OFFENDERS/"]}, format="json")
+    "paths": ["s3://{}".format(output_path)]}, format="json")
 local_df = inputDF.toDF()
 
 
