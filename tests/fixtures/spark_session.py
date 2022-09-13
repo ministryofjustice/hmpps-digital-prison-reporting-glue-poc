@@ -15,7 +15,7 @@ def spark_session(request):
 
     session = sql.SparkSession(sc)
     session.conf.set("spark.sql.session.timeZone", "UTC")
-    session.conf.set("spark.sql.caseSensitive", "true")
+    session.conf.set("spark.sql.caseSensitive", "false")
     request.addfinalizer(lambda: sc.stop())
 
     return session

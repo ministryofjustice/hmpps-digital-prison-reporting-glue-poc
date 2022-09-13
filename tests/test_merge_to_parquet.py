@@ -46,16 +46,16 @@ def test_add_hash_drop_tokens(spark_session):
     local_df_d = spark_session.read.json(config_dict["read_path"] + "/deletes/")
     local_df_d = add_hash_drop_tokens(frame=local_df_d, hash_fields=["before"])
 
-    assert local_df_i.select("after_hash").filter(col("after.OFFENDER_ID").isin({127})).collect()[0] == Row(
+    assert local_df_i.select("after_hash").filter(col("after.offender_id").isin({127})).collect()[0] == Row(
         after_hash=695065351
     )
-    assert local_df_u.select("before_hash").filter(col("before.OFFENDER_ID").isin({127})).collect()[0] == Row(
+    assert local_df_u.select("before_hash").filter(col("before.offender_id").isin({127})).collect()[0] == Row(
         after_hash=695065351
     )
-    assert local_df_u.select("after_hash").filter(col("before.OFFENDER_ID").isin({127})).collect()[0] == Row(
+    assert local_df_u.select("after_hash").filter(col("before.offender_id").isin({127})).collect()[0] == Row(
         after_hash=878455901
     )
-    assert local_df_d.select("before_hash").filter(col("before.OFFENDER_ID").isin({127})).collect()[0] == Row(
+    assert local_df_d.select("before_hash").filter(col("before.offender_id").isin({127})).collect()[0] == Row(
         after_hash=695065351
     )
 
@@ -100,13 +100,13 @@ def test_add_partitions_from_op_ts(spark_session):
     local_df_out = add_partitions_from_op_ts(config=config_dict, frame=local_df_out)
 
     assert local_df_out.select("date").filter(
-        col("after.OFFENDER_ID").isin({127}) & col("op_type").isin({"I"})
+        col("after.offender_id").isin({127}) & col("op_type").isin({"I"})
     ).collect()[0] == Row(date=datetime.date(2022, 9, 1))
 
     assert local_df_out.select("date").filter(
-        col("before.OFFENDER_ID").isin({127}) & col("op_type").isin({"U"})
+        col("before.offender_id").isin({127}) & col("op_type").isin({"U"})
     ).collect()[0] == Row(date=datetime.date(2022, 9, 13))
 
     assert local_df_out.select("date").filter(
-        col("before.OFFENDER_ID").isin({127}) & col("op_type").isin({"D"})
+        col("before.offender_id").isin({127}) & col("op_type").isin({"D"})
     ).collect()[0] == Row(date=datetime.date(2022, 9, 25))
