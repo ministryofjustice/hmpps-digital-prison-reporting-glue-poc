@@ -1,7 +1,18 @@
 from pyspark.sql.functions import *
 from pyspark.sql.types import DateType, TimestampType
 
+
+"""
+merge goldengate events log to parquet 
+
+
+"""
+__author__ = "frazer.clayton@digital.justice.gov.uk"
+
+# use glue catalog True/False
 USE_CATALOG = False
+
+# configuration
 config_dict = dict(
     source_bucket="dpr-demo-development-20220906101710889000000001",
     target_bucket="dpr-demo-development-20220906101710889000000001",
@@ -16,6 +27,11 @@ config_dict = dict(
 
 
 def update_config():
+    """
+    Update configuration with elements describing paths to data
+    :return: None
+    """
+
     config_dict["read_path"] = (
         config_dict["source_bucket"]
         + "/"
@@ -38,6 +54,13 @@ def update_config():
 
 
 def write_catalog(gluecontext, config, frame):
+    """
+    write output using glue catalog
+    :param gluecontext: Glue context
+    :param config: configuration dictionary
+    :param frame: Glue Dynamic Frame
+    :return:None
+    """
     additionaloptions = {"enableUpdateCatalog": True, "partitionKeys": config_dict["partition_by"]}
 
     gluecontext.write_dynamic_frame_from_catalog(
@@ -52,6 +75,13 @@ def write_catalog(gluecontext, config, frame):
 
 
 def write_s3(gluecontext, config, frame):
+    """
+    write output to S3
+    :param gluecontext: Glue context
+    :param config: configuration dictionary
+    :param frame: Glue Dynamic Frame
+    :return:None
+    """
     gluecontext.write_dynamic_frame.from_options(
         frame=frame,
         connection_type="s3",
@@ -64,6 +94,13 @@ def write_s3(gluecontext, config, frame):
 
 
 def write_frame(gluecontext, config, frame):
+    """
+    wrapper for write mechanism determined by USE_CATALOG
+    :param gluecontext: Glue context
+    :param config: configuration dictionary
+    :param frame: Glue Dynamic Frame
+    :return:None
+    """
     if USE_CATALOG:
         write_catalog(gluecontext=gluecontext, config=config, frame=frame)
     else:
@@ -71,6 +108,13 @@ def write_frame(gluecontext, config, frame):
 
 
 def read_s3_to_df(gluecontext, config, key_suffix):
+    """
+    Read from S3 into Dataframe
+    :param gluecontext: Glue context
+    :param config: configuration dictionary
+    :param key_suffix: suffix to be added to path
+    :return: spark dataframe
+    """
     input_dydf = gluecontext.create_dynamic_frame_from_options(
         connection_type="s3",
         connection_options={"paths": ["s3://{}/{}/".format(config["read_path"], key_suffix)]},
@@ -80,6 +124,12 @@ def read_s3_to_df(gluecontext, config, key_suffix):
 
 
 def add_hash_drop_tokens(frame, hash_fields):
+    """
+    drop tokens fields from goldengate data and add hash of records event pertains to
+    :param frame: spark dataframe
+    :param hash_fields: fields to be hashed (before and/or after)
+    :return: spark dataframe
+    """
     new_frame = frame.drop(col("tokens"))
     for hash_field in hash_fields:
         hash_name = "{}_hash".format(hash_field)
@@ -88,6 +138,12 @@ def add_hash_drop_tokens(frame, hash_fields):
 
 
 def add_partitions_from_op_ts(config, frame):
+    """
+    Add partition fields to dataframe
+    :param config: configuration dictionary
+    :param frame: spark dataframe
+    :return: spark dataframe
+    """
     op_ts_def = [1, 19]
     new_frame = frame
     for part in config["partition_by"]:
@@ -104,6 +160,12 @@ def add_partitions_from_op_ts(config, frame):
 
 
 def union_dfs(prime_df, df_list):
+    """
+    union dataframes into one
+    :param prime_df: primary dataframe
+    :param df_list: list of frames to be unioned to primary
+    :return: spark dataframe
+    """
     new_df = prime_df
     for un_df in df_list:
         new_df = new_df.unionByName(un_df, allowMissingColumns=True)
@@ -111,6 +173,10 @@ def union_dfs(prime_df, df_list):
 
 
 def start():
+    """
+    start the processing
+    :return: None
+    """
     from awsglue.context import GlueContext
     from awsglue.dynamicframe import DynamicFrame
 
