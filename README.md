@@ -72,6 +72,17 @@ JupyterLab will be available at
 http://localhost:8888/lab
 ```
 
+## Unit Testing and Code Formatting
+Code formatting is performed with the command
+```buildoutcfg
+make black
+```
+
+Tests are performed against spark with the command
+```buildoutcfg
+make test
+```
+
 ### Notes
 
 - Modify the Dependabot file to suit the [dependency manager](https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#package-ecosystem) you plan to use and for [automated pull requests for package updates](https://docs.github.com/en/code-security/supply-chain-security/keeping-your-dependencies-updated-automatically/enabling-and-disabling-dependabot-version-updates#enabling-dependabot-version-updates). Dependabot is enabled in the settings by default.

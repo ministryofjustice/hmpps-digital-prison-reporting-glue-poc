@@ -8,7 +8,7 @@ install-dev:
 
 test:
 	black --check -l 120 -t py37 src/
-	pytest -sv tests/
+	python -m pytest -sv tests/
 
 black:
 	black -l 120 -t py37 src/

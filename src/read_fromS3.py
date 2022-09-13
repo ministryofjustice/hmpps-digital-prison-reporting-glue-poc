@@ -24,19 +24,33 @@ output_path = (
     + config_dict["table"]
 )
 
+write_path = (
+    config_dict["target_bucket"]
+    + "/"
+    + config_dict["target_parquet"]
+    + "/"
+    + config_dict["schema"]
+    + "/"
+    + config_dict["table"]
+)
+
 glueContext = GlueContext(SparkContext.getOrCreate())
-inputDF = glueContext.create_dynamic_frame_from_options(connection_type="s3", connection_options={
-    "paths": ["s3://{}/updates/".format(output_path)]}, format="json")
+inputDF = glueContext.create_dynamic_frame_from_options(
+    connection_type="s3", connection_options={"paths": ["s3://{}".format(write_path)]}, format="parquet"
+)
 local_df = inputDF.toDF()
 
 
-local_df.select(col("table"),
-                col("op_type"),
-                col("op_ts"),
-                col("current_ts"),
-                col("pos"),
-                col("after.offender_id"),
-                col("after.first_name"),
-                col("after.last_name"),
-                col("after.title")
-                ).show()
+local_df.select(
+    col("table"),
+    col("op_type"),
+    col("op_ts"),
+    col("current_ts"),
+    col("pos"),
+    col("after.offender_id"),
+    col("after.first_name"),
+    col("after.last_name"),
+    col("after.title"),
+).show()
+
+print("records", local_df.count())

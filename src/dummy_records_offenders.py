@@ -19,7 +19,7 @@ config_dict = dict(
     table="offenders",
 )
 
-pos_seed = 3000
+pos_seed = 1000000
 rec_count = 0
 global_dict = dict(
     table="OMS_OWNER.OFFENDERS",
@@ -31,7 +31,6 @@ global_dict = dict(
     after={},
     before={},
 )
-
 
 input_path = config_dict["source_bucket"] + "/" + config_dict["source"]
 output_path = (
@@ -70,6 +69,7 @@ for rec in inputs:
     new_timestamp = datetime.datetime.strptime(recdict["CREATE_DATE"][:19], "%Y-%m-%dT%H:%M:%S") + datetime.timedelta(
         seconds=pos_time_delta
     )
+    new_timestamp = datetime.datetime.now() - datetime.timedelta(seconds=pos_time_delta)
 
     recdict["AUDIT_TIMESTAMP"] = str(new_timestamp) + ".500000"
     recdict["CREATE_DATETIME"] = str(new_timestamp) + ".000000"
@@ -77,21 +77,24 @@ for rec in inputs:
     recdict["MODIFIED_DATETIME"] = None
     recdict["MODIFY_DATETIME"] = None
     recdict["BIRTH_DATE"] = recdict["BIRTH_DATE"][:10]
-    recdict["CREATE_DATE"] = recdict["CREATE_DATE"][:10]
+    recdict["CREATE_DATE"] = str(new_timestamp)[:10]
+    # recdict["CREATE_DATE"] = recdict["CREATE_DATE"][:10]
     # inserts
     global_dict["op_type"] = "I"
     global_dict["tokens"] = {}
     global_dict["tokens"] = dict(R="AADPkvAAEAAEqL2AAA")
     global_dict["current_ts"] = str(datetime.datetime.now())
     global_dict["pos"] = "{:020d}".format(pos_time_delta)
-    global_dict["op_ts"] = str(new_timestamp) + "." + str(random.randint(1, 999999))
+    global_dict["op_ts"] = str(new_timestamp) + "." + str(random.randint(1, 10))
+    global_dict["before"] = {}
+    global_dict["after"] = {}
     global_dict.pop("before")
     global_dict.pop("after")
     global_dict["after"] = recdict
     json_list_i.append(json.dumps(global_dict))
     # updates
 
-    pos_time_delta = pos_time_delta + random.randint(1, 31536000)
+    pos_time_delta = pos_time_delta + random.randint(1, 100000)
     global_dict["before"] = recdict.copy()
     global_dict["current_ts"] = str(datetime.datetime.now())
     global_dict["pos"] = "{:020d}".format(pos_time_delta)
@@ -101,7 +104,7 @@ for rec in inputs:
     # print(global_dict["after"]["CREATE_DATETIME"]+timedelta(seconds=24)
     new_timestamp = new_timestamp + datetime.timedelta(seconds=pos_time_delta)
 
-    global_dict["op_ts"] = str(new_timestamp) + "." + str(random.randint(1, 999999))
+    global_dict["op_ts"] = str(new_timestamp) + "." + str(random.randint(1, 10))
     # global_dict["after"]["AUDIT_TIMESTAMP"] = str(new_timestamp) + '.500000'
     # global_dict["after"]["CREATE_DATETIME"] = str(new_timestamp) + '.000000'
     global_dict["after"]["MODIFIED_DATETIME"] = str(new_timestamp) + ".000000"
@@ -121,17 +124,20 @@ for rec in inputs:
 
     # deletes
     if rec_count < 10:
+        pos_time_delta = pos_time_delta + random.randint(1, 100000)
+        new_timestamp = new_timestamp + datetime.timedelta(seconds=pos_time_delta)
         recdict_before = global_dict["before"].copy()
         recdict_after = global_dict["after"].copy()
         global_dict.pop("before")
         global_dict.pop("after")
-        pos_time_delta = pos_time_delta + random.randint(1, 31536000)
+
         # make alternate delete invalid
         if rec_count % 2 == 0:
             global_dict["before"] = recdict_after
         else:
             global_dict["before"] = recdict_before
         global_dict["current_ts"] = str(datetime.datetime.now())
+        global_dict["op_ts"] = str(new_timestamp) + "." + str(random.randint(1, 10))
         global_dict["pos"] = "{:020d}".format(pos_time_delta)
         global_dict["op_type"] = "D"
         global_dict["tokens"] = {}
@@ -141,7 +147,6 @@ for rec in inputs:
         )
         global_dict["tokens"]["6"] = "9.0.80330"
 
-        global_dict["op_ts"] = str(new_timestamp) + "." + str(random.randint(1, 999999))
         json_list_d.append(json.dumps(global_dict))
 
 dfout_i = spark.read.json(sc.parallelize(json_list_i))
