@@ -1,4 +1,4 @@
 - [ ] JIRA ticket link :
 - [ ] The pull request has a descriptive title that describes what has changed, and provides enough context for the changelog
-- [ ] If applicable has Readme and or Docs been updated
+- [ ] If applicable has Code Commentary, Readme and or Docs been updated
 - [ ] if applicable are tests up to date  

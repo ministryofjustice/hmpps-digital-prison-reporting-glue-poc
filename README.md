@@ -14,9 +14,9 @@
 
 #### ToDo
 
-- [ ] Github Action example
+- [ ] Github Action 
+- [ ] Deployment Strategy
 - [ ] dependabot.yml file
-- [x] CODEOWNERS
 - [ ] refactor code
 
 ## Details
@@ -30,7 +30,10 @@
 ```
 TBC
 ```
+#### Code Changes
 
+- Please keep all Code Commentary and Documentation up to date
+- Even with the seemingly self-evident the why! is as important as the what and how
 #### Branch Naming
 
 - Please use wherever possible the JIRA ticket as branch name.
