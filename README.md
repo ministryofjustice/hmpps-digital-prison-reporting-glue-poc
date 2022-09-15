@@ -81,7 +81,7 @@ Code formatting is performed with the command
 make black
 ```
 
-Tests are performed against spark with the command
+Tests and code format checks are performed against spark with the command
 ```buildoutcfg
 make test
 ```

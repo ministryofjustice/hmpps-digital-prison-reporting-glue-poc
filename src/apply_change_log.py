@@ -101,9 +101,9 @@ def start():
 
     df_unique_key = rename_columns(frame=df_event_log.select(target_key).distinct())
 
-    df_to_consider = df_table_in.join(df_unique_key,
-                                      df_table_in[target_key] == df_unique_key["__{}".format(target_key)],
-                                      "inner").drop("__{}".format(target_key))
+    df_to_consider = df_table_in.join(
+        df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "inner"
+    ).drop("__{}".format(target_key))
 
     print("records to consider:", df_to_consider.count())
     df_event_log.sort("admin_gg_pos")
@@ -111,8 +111,8 @@ def start():
     print(temp_dict_list[0])
 
     df_applied = df_to_consider.rdd.map(
-        lambda row: apply_events(row_in=row, key_field=target_key, event_dict=temp_dict_list)).toDF(
-        schema=target_schema)
+        lambda row: apply_events(row_in=row, key_field=target_key, event_dict=temp_dict_list)
+    ).toDF(schema=target_schema)
     print("records applied:", df_applied.count())
     df_applied.show(1)
 

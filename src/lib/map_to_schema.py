@@ -76,17 +76,17 @@ def mapper(row_in, schema):
     row_dict = row_out.asDict()
 
     for fld_name in row_dict:
-        if fld_name.lower() == 'modified_datetime':
-            new_row_dict['modify_datetime'] = row_dict[fld_name]
+        if fld_name.lower() == "modified_datetime":
+            new_row_dict["modify_datetime"] = row_dict[fld_name]
         else:
-            new_row_dict[fld_name.lower()] = format_field(schema=schema, fldname=fld_name.lower(),
-                                                          fld_val=row_dict[fld_name])
+            new_row_dict[fld_name.lower()] = format_field(
+                schema=schema, fldname=fld_name.lower(), fld_val=row_dict[fld_name]
+            )
     new_row_dict["admin_hash"] = row_in["after_hash"]
 
     new_row_dict["previous_hash"] = row_in["before_hash"]
     new_row_dict["admin_gg_pos"] = row_in["pos"]
-    new_row_dict["admin_gg_op_ts"] = format_field(schema=schema, fldname='admin_gg_op_ts',
-                                                  fld_val=row_in["op_ts"])
+    new_row_dict["admin_gg_op_ts"] = format_field(schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
     new_row_dict["admin_event_ts"] = datetime.datetime.now()
     new_row_dict["event_type"] = row_in["op_type"]
     # print(new_row_dict)

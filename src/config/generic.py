@@ -22,21 +22,21 @@ def update_config():
     """
 
     config_gg_events["path"] = (
-            config_gg_events["source_bucket"]
-            + "/"
-            + config_gg_events["source"]
-            + "/"
-            + config_gg_events["schema"]
-            + "/"
-            + config_gg_events["table"]
+        config_gg_events["source_bucket"]
+        + "/"
+        + config_gg_events["source"]
+        + "/"
+        + config_gg_events["schema"]
+        + "/"
+        + config_gg_events["table"]
     )
 
     config_target_table["path"] = (
-            config_target_table["target_bucket"]
-            + "/"
-            + config_target_table["target_final"]
-            + "/"
-            + config_target_table["schema"]
-            + "/"
-            + config_target_table["table"]
+        config_target_table["target_bucket"]
+        + "/"
+        + config_target_table["target_final"]
+        + "/"
+        + config_target_table["schema"]
+        + "/"
+        + config_target_table["table"]
     )

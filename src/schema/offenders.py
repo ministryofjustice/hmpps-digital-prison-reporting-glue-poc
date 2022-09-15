@@ -81,7 +81,7 @@ def get_schema(with_event_type=False):
 
 
 def get_primary_key():
-    return 'offender_id'
+    return "offender_id"
 
 
 if __name__ == "__main__":
