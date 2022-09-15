@@ -4,7 +4,12 @@ from pyspark.shell import spark
 from pyspark.sql.functions import *
 from pyspark.sql.types import DateType, TimestampType, Row
 import datetime
-from src.schema.offenders import get_schema
+
+from src.config.generic import update_config, config_gg_events, config_target_table
+from src.lib.aws_io import read_s3_to_df
+from src.lib.map_to_schema import mapper
+from src.lib.rename import rename_columns
+from src.schema.offenders import get_schema, get_primary_key
 
 """
 apply goldengate events log to target
@@ -13,203 +18,59 @@ apply goldengate events log to target
 """
 __author__ = "frazer.clayton@digital.justice.gov.uk"
 
-# use glue catalog True/False
-USE_CATALOG = False
 
-# configuration
-config_gg_events = dict(
-    source_bucket="dpr-demo-development-20220906101710889000000001",
-    source="data/dummy/kinesis/transac/parquet",
-    schema="oms_owner",
-    table="offenders",
-)
-config_target_table = dict(
-    target_bucket="dpr-demo-development-20220906101710889000000001",
-    target_final="data/dummy/database",
-    schema="oms_owner",
-    table="offenders",
-    # partition_by = ["date", "time"]
-    partition_by=["create_date"],
-)
-
-
-def update_config():
+def convert_to_dict_list(frame):
     """
-    Update configuration with elements describing paths to data
-    :return: None
+    convert dataframe to list of dict form
+    :param frame: dataframe
+    :return: list of data in dict form
     """
-
-    config_gg_events["path"] = (
-        config_gg_events["source_bucket"]
-        + "/"
-        + config_gg_events["source"]
-        + "/"
-        + config_gg_events["schema"]
-        + "/"
-        + config_gg_events["table"]
-    )
-
-    config_target_table["path"] = (
-        config_target_table["target_bucket"]
-        + "/"
-        + config_target_table["target_final"]
-        + "/"
-        + config_target_table["schema"]
-        + "/"
-        + config_target_table["table"]
-    )
+    out_dict = frame.rdd.map(lambda row: row.asDict()).collect()
+    return out_dict
 
 
-def write_catalog(gluecontext, config, frame):
+def compare_events(dict_orig, row_in, key_field):
     """
-    write output using glue catalog
-    :param gluecontext: Glue context
-    :param config: configuration dictionary
-    :param frame: Glue Dynamic Frame
-    :return:None
+    compare events applying changes (where previous hash not match reject)
+    :param dict_orig: original record in dict form
+    :param row_in: event record in dict form
+    :param key_field: key field to make comparison
+    :return: updated dict
     """
-    additionaloptions = {"enableUpdateCatalog": True, "partitionKeys": config["partition_by"]}
+    if row_in["previous_hash"] == dict_orig["admin_hash"]:
+        if row_in["event_type"] == "U":
+            for key in dict_orig:
+                dict_orig[key] = row_in[key]
+        if row_in["event_type"] == "D":
+            dict_orig[key_field] = -9876
+        if row_in["event_type"] == "I":
+            if dict_orig[key_field] < 0:
+                for key in dict_orig:
+                    dict_orig[key] = row_in[key]
 
-    gluecontext.write_dynamic_frame_from_catalog(
-        frame=frame,
-        database=config["schema"],
-        table_name=config["table"],
-        connection_type="s3",
-        connection_options={"path": "s3://{}/".format(config["path"])},
-        additional_options=additionaloptions,
-        format="parquet",
-    )
+    return dict_orig
 
 
-def write_s3(gluecontext, config, frame):
+def apply_events(row_in, key_field, event_dict):
     """
-    write output to S3
-    :param gluecontext: Glue context
-    :param config: configuration dictionary
-    :param frame: Glue Dynamic Frame
-    :return:None
+    apply events in to row_in
+    :param row_in: original row
+    :param key_field: primary key
+    :param event_dict: list of events in dict form
+    :return: row with changes applied
     """
-    gluecontext.write_dynamic_frame.from_options(
-        frame=frame,
-        connection_type="s3",
-        connection_options={
-            "path": "s3://{}/".format(config["path"]),
-            "partitionKeys": config["partition_by"],
-        },
-        format="parquet",
-    )
+    row_dict = row_in.asDict()
 
+    tmp_dict = []
+    for dct in event_dict:
+        if dct[key_field] == row_dict[key_field]:
+            tmp_dict.append(dct)
+    print("tmp dict len {}".format(len(tmp_dict)))
 
-def write_frame(gluecontext, config, frame):
-    """
-    wrapper for write mechanism determined by USE_CATALOG
-    :param gluecontext: Glue context
-    :param config: configuration dictionary
-    :param frame: Glue Dynamic Frame
-    :return:None
-    """
-    if USE_CATALOG:
-        write_catalog(gluecontext=gluecontext, config=config, frame=frame)
-    else:
-        write_s3(gluecontext=gluecontext, config=config, frame=frame)
+    for event_rec in tmp_dict:
+        row_dict = compare_events(row_dict, event_rec, key_field)
 
-
-def read_s3_to_df(gluecontext, config, key_suffix=None, file_format="parquet"):
-    """
-    Read from S3 into Dataframe
-    :param gluecontext: Glue context
-    :param config: configuration dictionary
-    :param key_suffix: suffix to be added to path
-    :return: spark dataframe
-    """
-    read_path = "s3://{}".format(config["path"])
-    if key_suffix is not None:
-        read_path = read_path + "/{}/".format(key_suffix)
-    input_dydf = gluecontext.create_dynamic_frame_from_options(
-        connection_type="s3",
-        connection_options={"path": read_path},
-        format=file_format,
-    )
-    # inputDF = glueContext.create_dynamic_frame_from_options(connection_type="s3", connection_options={
-    # "paths": ["s3://{}".format(write_path)]}, format="parquet")
-    return input_dydf.toDF()
-
-
-def create_empty_df(schema):
-    return spark.createDataFrame(data=spark.sparkContext.emptyRDD(), schema=schema)
-
-
-def load_sample_to_df(df):
-    dfsample = df.sample(0.01)
-    print(dfsample.count())
-    return dfsample
-
-
-def output_df():
-    target_schema = get_schema()
-
-    temp_df = create_empty_df(target_schema)
-    return temp_df
-
-
-def get_schema_fields_as_dict(schema):
-    schema_dict = {}
-    for fld in schema:
-        schema_dict[fld.name] = None
-    return schema_dict
-
-
-def get_schema_field_type(schema, fldname):
-    schema_dict = {}
-    for fld in schema:
-        if fld.name == fldname:
-            return fld.dataType
-
-
-def format_field(schema, fldname, fld_val):
-    fldtype = get_schema_field_type(schema=schema, fldname=fldname)
-    new_val = fld_val
-    if fld_val is not None:
-        if fldtype == DateType():
-            # print("datetype", fldname, fld_val)
-            new_val = datetime.datetime.strptime(fld_val, "%Y-%m-%d")
-        if fldtype == TimestampType():
-            # print("timestamptype", fldname, fld_val)
-            new_val = datetime.datetime.strptime(fld_val[:26], "%Y-%m-%d %H:%M:%S.%f")
-    return new_val
-
-
-def mapper(row_in, schema):
-    # print("row_in")
-    # print(row_in["after"])
-    # new_row = Row()
-    # print("#####")
-
-    new_row_dict = get_schema_fields_as_dict(schema)
-
-    if row_in["op_type"] != "D":
-        row_out = row_in["after"]
-    else:
-        row_out = row_in["before"]
-
-    row_dict = row_out.asDict()
-
-    for fld_name in row_dict:
-        if fld_name.lower() == "modified_datetime":
-            new_row_dict["modify_datetime"] = row_dict[fld_name]
-        else:
-            new_row_dict[fld_name.lower()] = format_field(
-                schema=schema, fldname=fld_name.lower(), fld_val=row_dict[fld_name]
-            )
-    new_row_dict["admin_hash"] = row_in["after_hash"]
-
-    new_row_dict["previous_hash"] = row_in["before_hash"]
-    new_row_dict["admin_gg_pos"] = row_in["pos"]
-    new_row_dict["admin_gg_op_ts"] = format_field(schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
-    new_row_dict["admin_event_ts"] = datetime.datetime.now()
-    new_row_dict["event_type"] = row_in["op_type"]
-    # print(new_row_dict)
-    return Row(**new_row_dict)
+    return Row(**row_dict)
 
 
 def start():
@@ -224,56 +85,41 @@ def start():
 
     update_config()
 
-    target_schema = get_schema(with_event_type=True)
+    temp_schema = get_schema(with_event_type=True)
+    target_schema = get_schema()
+    target_key = get_primary_key()
 
     df_event_log = read_s3_to_df(gluecontext=glueContext, config=config_gg_events)  # , key_suffix="date=2022-09-13")
-    df_event_log.select(
-        # col("table"),
-        # col("offender_id"),
-        col("op_ts"),
-        col("pos"),
-        col("before_hash"),
-        col("before.offender_id"),
-    ).filter((col("op_type").isin({"D"}))).show(10, False)
 
     df_table_in = read_s3_to_df(gluecontext=glueContext, config=config_target_table)
+    # df_table_in = df_table_in.withColumn("status", lit(0))
 
     # df_event_log.show()
     # df_table_in.show()
 
-    df_event_log = df_event_log.rdd.map(lambda row: mapper(row_in=row, schema=target_schema)).toDF(schema=target_schema)
+    df_event_log = df_event_log.rdd.map(lambda row: mapper(row_in=row, schema=temp_schema)).toDF(schema=temp_schema)
 
-    new_column_name_list = list(map(lambda x: "__{}".format(x), df_event_log.columns))
-    df_event_log = df_event_log.toDF(*new_column_name_list)
+    df_unique_key = rename_columns(frame=df_event_log.select(target_key).distinct())
 
-    df_joined = df_table_in.join(df_event_log, df_table_in["offender_id"] == df_event_log["__offender_id"], "outer")
+    df_to_consider = df_table_in.join(df_unique_key,
+                                      df_table_in[target_key] == df_unique_key["__{}".format(target_key)],
+                                      "inner").drop("__{}".format(target_key))
 
-    df_joined.select(
-        # col("table"),
-        col("birth_date"),
-        col("admin_gg_op_ts"),
-        col("admin_gg_pos"),
-        col("admin_hash"),
-        col("__admin_hash"),
-        col("__previous_hash"),
-        # to_timestamp("op_ts"),
-        # datetime.datetime.strptime(col("op_ts"), "%Y-%m-%dT%H:%M:%S"),
-        # col("timestamp"),
-        # col("hour"),
-        # col("min"),
-        # col("op_type"),
-        # col("pos"),
-        col("offender_id"),
-        col("__offender_id"),
-        col("__event_type")
-        # col("after.offender_id"),
-        # col("before_hash"),
-        # col("after_hash"),
-    ).filter((col("__event_type").isin({"D"}))).show(10, False)
-    # local_df_out = temp_rdd.toDF(schema=target_schema)
-    # out_dyf = DynamicFrame.fromDF(local_df_out, glueContext, "out_dyf")
+    print("records to consider:", df_to_consider.count())
+    df_event_log.sort("admin_gg_pos")
+    temp_dict_list = convert_to_dict_list(df_event_log)
+    print(temp_dict_list[0])
 
-    # write_frame(gluecontext=glueContext, config=config_target_table, frame=out_dyf)
+    df_applied = df_to_consider.rdd.map(
+        lambda row: apply_events(row_in=row, key_field=target_key, event_dict=temp_dict_list)).toDF(
+        schema=target_schema)
+    print("records applied:", df_applied.count())
+    df_applied.show(1)
+
+    # new_column_name_list= list(map(lambda x: "__{}".format(x), df_event_log.columns))
+    # df_event_log = df_event_log.toDF(*new_column_name_list)
+
+    # df_joined = df_table_in.join(df_event_log,df_table_in["offender_id"] ==  df_event_log["__offender_id"],"left")
 
 
 if __name__ == "__main__":
