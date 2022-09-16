@@ -1,11 +1,11 @@
 from time import strptime
 
+
 from pyspark.shell import spark
 from pyspark.sql.functions import *
 from pyspark.sql.types import DateType, TimestampType, Row
 from pyspark.sql import Window
 import datetime
-
 
 from pyspark.sql.types import (
     StringType,
@@ -22,6 +22,21 @@ from pyspark.sql.types import (
     TimestampType,
     StructField,
 )
+
+
+"""
+apply goldengate events log to target
+    ToDo: 
+        refactor methods into src/lib/
+        enhance commentary
+        resolve dynamic frame read/write catalog (requires glue catalog)
+        resolve dynamic frame read write to delta tables
+        
+
+"""
+__author__ = "frazer.clayton@digital.justice.gov.uk"
+
+
 
 possible_types = {
     1: lambda t: DoubleType(),
@@ -99,12 +114,6 @@ def get_primary_key():
     return "offender_id"
 
 
-"""
-apply goldengate events log to target
-
-
-"""
-__author__ = "frazer.clayton@digital.justice.gov.uk"
 
 # use glue catalog True/False
 USE_CATALOG = False
@@ -123,7 +132,7 @@ config_target_table = dict(
     schema="oms_owner",
     table="offenders",
     # partition_by = ["date", "time"]
-    partition_by=["create_date"],
+    partition_by=["part_date"],
 )
 
 
@@ -153,6 +162,16 @@ def update_config():
         + config_target_table["table"]
     )
 
+    config_target_table["path_delta"] = (
+        config_target_table["target_bucket"]
+        + "/"
+        + config_target_table["target_final"]
+        + "/delta/"
+        + config_target_table["schema"]
+        + "/"
+        + config_target_table["table"]
+    )
+
 
 def write_catalog(gluecontext, config, frame):
     """
@@ -177,12 +196,15 @@ def write_catalog(gluecontext, config, frame):
 
 def write_s3(gluecontext, config, frame):
     """
-    write output to S3
+    write glue dynamic frame to S3
+        CURRENTLY THIS IS NOT WORKING WITH DELTA FORMAT
     :param gluecontext: Glue context
     :param config: configuration dictionary
     :param frame: Glue Dynamic Frame
     :return:None
     """
+
+    print("###### s3 writing to {}".format(config["path"]))
     gluecontext.write_dynamic_frame.from_options(
         frame=frame,
         connection_type="s3",
@@ -192,6 +214,15 @@ def write_s3(gluecontext, config, frame):
         },
         format="delta",
     )
+
+
+def write_delta(config, frame):
+    # Write data as DELTA TABLE
+    frame.write.format("delta").mode("overwrite").save("s3://{}/".format(config["path_delta"]))
+
+    # Generate MANIFEST file for Athena/Catalog
+    # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path_delta"]))
+    # deltaTable.generate("symlink_format_manifest")
 
 
 def write_frame(gluecontext, config, frame):
@@ -231,8 +262,14 @@ def create_empty_df(schema):
     return spark.createDataFrame(data=spark.sparkContext.emptyRDD(), schema=schema)
 
 
-def load_sample_to_df(df):
-    dfsample = df.sample(0.01)
+def load_sample_to_df(df, sample=0.01):
+    """
+    sample df records
+    :param sample: sample decimal
+    :param df: dataframe to sample
+    :return: sampled dataframe
+    """
+    dfsample = df.sample(sample)
     print(dfsample.count())
     return dfsample
 
@@ -245,6 +282,11 @@ def output_df():
 
 
 def get_schema_fields_as_dict(schema):
+    """
+    convert schem to dictionary
+    :param schema: schema
+    :return: dictionary containing schema
+    """
     schema_dict = {}
     for fld in schema:
         schema_dict[fld.name] = None
@@ -252,13 +294,26 @@ def get_schema_fields_as_dict(schema):
 
 
 def get_schema_field_type(schema, fldname):
-    schema_dict = {}
+    """
+    get datatype of field name from schema
+    :param schema: schema
+    :param fldname: field name
+    :return: datatype
+    """
+
     for fld in schema:
         if fld.name == fldname:
             return fld.dataType
 
 
 def format_field(schema, fldname, fld_val):
+    """
+    format field value based on schema datatypes
+    :param schema: schema
+    :param fldname: fieldname
+    :param fld_val: field value
+    :return: field value as datatype
+    """
     fldtype = get_schema_field_type(schema=schema, fldname=fldname)
     new_val = fld_val
     if fld_val is not None:
@@ -272,10 +327,12 @@ def format_field(schema, fldname, fld_val):
 
 
 def mapper(row_in, schema):
-    # print("row_in")
-    # print(row_in["after"])
-    # new_row = Row()
-    # print("#####")
+    """
+    map rows to schema
+    :param row_in: row containing unmapped record
+    :param schema: schema definition
+    :return: row type in correct schema format
+    """
 
     new_row_dict = get_schema_fields_as_dict(schema)
 
@@ -305,11 +362,23 @@ def mapper(row_in, schema):
 
 
 def convert_to_dict_list(frame):
+    """
+    convert all rows to dictionary list
+    :param frame: dataframe
+    :return: list of dictionarys containing row data
+    """
     out_dict = frame.rdd.map(lambda row: row.asDict()).collect()
     return out_dict
 
 
 def compare_dicts(dict_orig, row_in, key_field):
+    """
+    compare the two dictionary records and update original based on event type
+    :param dict_orig: original dict
+    :param row_in: event record
+    :param key_field: record key
+    :return: updated original dict
+    """
     if row_in["previous_hash"] == dict_orig["admin_hash"]:
         if row_in["event_type"] == "U":
             for key in dict_orig:
@@ -332,13 +401,19 @@ def compare_dicts(dict_orig, row_in, key_field):
 
 
 def apply_events(row_in, key_field, event_dict):
+    """
+    apply the events to the row sequentially
+    :param row_in: original row
+    :param key_field: record key
+    :param event_dict: list of events as dict
+    :return: updated row
+    """
     row_dict = row_in.asDict()
 
     tmp_dict = []
     for dct in event_dict:
         if dct[key_field] == row_dict[key_field]:
             tmp_dict.append(dct)
-    print("tmp dict len {}".format(len(tmp_dict)))
 
     for event_rec in tmp_dict:
         row_dict = compare_dicts(row_dict, event_rec, key_field)
@@ -426,7 +501,7 @@ def start():
     update_config()
 
     temp_schema = get_schema(with_event_type=True)
-    target_schema = get_schema()
+
     target_key = get_primary_key()
 
     df_event_log = read_s3_to_df(gluecontext=glueContext, config=config_gg_events)  # , key_suffix="date=2022-09-13")
@@ -437,7 +512,7 @@ def start():
     # df_event_log.show()
     # df_table_in.show()
 
-    show_table(df_table_in)
+    #show_table(df_table_in)
 
     df_event_log = df_event_log.rdd.map(lambda row: mapper(row_in=row, schema=temp_schema)).toDF(schema=temp_schema)
 
@@ -451,7 +526,35 @@ def start():
         df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "inner"
     ).drop("__{}".format(target_key))
 
+    # df_to_consider = df_to_consider.withColumn("__action", lit(""))
+
+    df_unique_applied_key = df_to_consider.select(target_key).distinct()
+
+    df_new_key = (
+        df_unique_key.join(
+            df_unique_applied_key, df_unique_applied_key[target_key] == df_unique_key["__{}".format(target_key)], "left"
+        )
+        .filter(col(target_key).isNull())
+        .drop(target_key)
+    )
+
+    w = Window.partitionBy(target_key)
+    df_primary_events = (
+        df_event_log.withColumn("minpos", min("admin_gg_pos").over(w))
+        .where(col("admin_gg_pos") == col("minpos"))
+        .drop("minpos")
+    )
+
+    df_primary_events = df_primary_events.drop("event_type").drop("previous_hash")
+
+    df_to_consider_2 = df_primary_events.join(
+        df_new_key, df_primary_events[target_key] == df_new_key["__{}".format(target_key)], "inner"
+    ).drop("__{}".format(target_key))
+
+    df_to_consider = df_to_consider.unionByName(df_to_consider_2)
+
     df_to_consider = df_to_consider.withColumn("__action", lit(""))
+
     action_schema = df_to_consider.schema
 
     df_event_log = df_event_log.sort("admin_gg_pos")
@@ -464,48 +567,21 @@ def start():
 
     show_bef_after_applied(df_to_consider, df_applied)
 
-    # consider events against non existing records
-    ##########################################
-
-    # get primary events where not in existing considered
-
-    # df_unique_key.filter(col("__offender_id").isin({1061,873,127, 128, 129})).show(10)
-    df_unique_applied_key = frame = df_applied.select(target_key).distinct()
-
-    # df_unique_applied_key.filter(col("offender_id").isin({1061,873,127, 128, 129})).show(10)
-
-    df_unique_key = (
-        df_unique_key.join(
-            df_unique_applied_key, df_unique_applied_key[target_key] == df_unique_key["__{}".format(target_key)], "left"
-        )
-        .filter(col(target_key).isNull())
-        .drop(target_key)
+    df_table_in = (
+        df_table_in.join(df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "left")
+        .filter(col("__{}".format(target_key)).isNull())
+        .drop("__{}".format(target_key))
     )
 
-    # df_unique_key.filter(col("__offender_id").isin({1061,873,127, 128, 129})).show(10)
-    # df_unique_key = df_unique_key.join(df_applied,df_unique_key[target_key] ==  df_unique_key["__{}".format(target_key)],"right") #.filter(col(target_key).isNull())
+    df_applied = df_applied.filter(col("__action").isin({"U", "I"})).drop("__action")
+    df_table_out = df_applied.unionByName(df_table_in, allowMissingColumns=True)
+    df_table_out = df_table_out.withColumn(config_target_table["partition_by"][0], col("create_date"))
+    show_table(df_table_out)
 
-    w = Window.partitionBy(target_key)
-    df_primary_events = (
-        df_event_log.withColumn("minpos", min("admin_gg_pos").over(w))
-        .where(col("admin_gg_pos") == col("minpos"))
-        .drop("minpos")
-    )
-
-    df_primary_events = df_primary_events.drop("event_type").drop("previous_hash")
-
-    df_to_consider = df_primary_events.join(
-        df_unique_key, df_primary_events[target_key] == df_unique_key["__{}".format(target_key)], "inner"
-    ).drop("__{}".format(target_key))
-
-    df_to_consider = df_to_consider.withColumn("__action", lit(""))
-    action_schema = df_to_consider.schema
-
-    df_added = df_to_consider.rdd.map(
-        lambda row: apply_events(row_in=row, key_field=target_key, event_dict=temp_dict_list)
-    ).toDF(schema=action_schema)
-
-    show_bef_after_applied(df_to_consider, df_added)
+    write_delta(config=config_target_table, frame=df_table_out)
+    # out_dyf = DynamicFrame.fromDF(df_table_out, glueContext, "out_dyf")
+    # config_target_table["path"] = config_target_table["path_delta"]
+    # write_frame(gluecontext=glueContext, config=config_target_table, frame=out_dyf)
 
 
 if __name__ == "__main__":
