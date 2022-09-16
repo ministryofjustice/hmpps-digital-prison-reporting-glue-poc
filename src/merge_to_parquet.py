@@ -4,10 +4,20 @@ from pyspark.sql.types import DateType, TimestampType
 
 """
 merge goldengate events log to parquet 
+    Resolution:
+        Ingest raw goldengate events logs 
+        commit goldengate events log to parquet on s3
 
+    ToDo: 
+        refactor methods into src/lib/
+        enhance commentary
+        resolve dynamic frame read/write catalog (requires glue catalog)
+
+        
 
 """
 __author__ = "frazer.clayton@digital.justice.gov.uk"
+
 
 # use glue catalog True/False
 USE_CATALOG = False

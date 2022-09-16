@@ -26,6 +26,10 @@ from pyspark.sql.types import (
 
 """
 apply goldengate events log to target
+    Resolution:
+        Ingest goldengate events logs from parquet on s3
+        apply events appropriately to target table
+        commit target table as delta on s3
     ToDo: 
         refactor methods into src/lib/
         enhance commentary
