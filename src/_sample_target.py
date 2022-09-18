@@ -123,23 +123,23 @@ def update_config():
     """
 
     config_dict["read_path"] = (
-            config_dict["source_bucket"]
-            + "/"
-            + config_dict["target_parquet"]
-            + "/"
-            + config_dict["schema"]
-            + "/"
-            + config_dict["table"]
+        config_dict["source_bucket"]
+        + "/"
+        + config_dict["target_parquet"]
+        + "/"
+        + config_dict["schema"]
+        + "/"
+        + config_dict["table"]
     )
 
     config_dict["write_path"] = (
-            config_dict["target_bucket"]
-            + "/"
-            + config_dict["target_final"]
-            + "/"
-            + config_dict["schema"]
-            + "/"
-            + config_dict["table"]
+        config_dict["target_bucket"]
+        + "/"
+        + config_dict["target_final"]
+        + "/"
+        + config_dict["schema"]
+        + "/"
+        + config_dict["table"]
     )
 
 

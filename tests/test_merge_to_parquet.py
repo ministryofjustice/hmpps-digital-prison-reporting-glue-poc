@@ -85,7 +85,7 @@ def test_add_partitions_from_op_ts(spark_session):
     config_dict["read_path"] = (
         "./tests/" + config_dict["target_json"] + "/" + config_dict["schema"] + "/" + config_dict["table"]
     )
-
+    config_dict["partition_by"] = ["part_date"]
     local_df_i = spark_session.read.json(config_dict["read_path"] + "/inserts/")
     local_df_i = add_hash_drop_tokens(frame=local_df_i, hash_fields=["after"])
 
@@ -99,14 +99,14 @@ def test_add_partitions_from_op_ts(spark_session):
 
     local_df_out = add_partitions_from_op_ts(config=config_dict, frame=local_df_out)
 
-    assert local_df_out.select("date").filter(
+    assert local_df_out.select("part_date").filter(
         col("after.offender_id").isin({127}) & col("op_type").isin({"I"})
     ).collect()[0] == Row(date=datetime.date(2022, 9, 1))
 
-    assert local_df_out.select("date").filter(
+    assert local_df_out.select("part_date").filter(
         col("before.offender_id").isin({127}) & col("op_type").isin({"U"})
     ).collect()[0] == Row(date=datetime.date(2022, 9, 13))
 
-    assert local_df_out.select("date").filter(
+    assert local_df_out.select("part_date").filter(
         col("before.offender_id").isin({127}) & col("op_type").isin({"D"})
     ).collect()[0] == Row(date=datetime.date(2022, 9, 25))

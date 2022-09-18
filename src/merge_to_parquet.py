@@ -7,9 +7,20 @@ merge goldengate events log to parquet
     Resolution:
         Ingest raw goldengate events logs 
         commit goldengate events log to parquet on s3
-
+        
+    Logical steps:
+        1. Read in event log as json
+        2. add hash field for record contents (before and or after where relevant) and drop tokens
+        3. Union together
+        4. Add Partition field(s)
+        5. write to target
+   
+   Notes : To run in glue_etl docker
+        1. Copy this script to /jupyter_workspace/src
+        3. execute with delta support (see readme) 
+        
     ToDo: 
-        refactor methods into src/lib/
+        refactor methods into src/lib/ - maybe not possible in glue etl
         enhance commentary
         resolve dynamic frame read/write catalog (requires glue catalog)
 
@@ -32,7 +43,7 @@ config_dict = dict(
     schema="oms_owner",
     table="offenders",
     # partition_by = ["date", "time"]
-    partition_by=["date"],
+    partition_by=["part_date"],
 )
 
 
@@ -157,16 +168,32 @@ def add_partitions_from_op_ts(config, frame):
     op_ts_def = [1, 19]
     new_frame = frame
     for part in config["partition_by"]:
-        if part == "date":
+        if part == "part_date":
             new_frame = new_frame.withColumn(
-                "date", substring(col("op_ts"), op_ts_def[0], op_ts_def[1]).cast(DateType())
+                "part_date", substring(col("op_ts"), op_ts_def[0], op_ts_def[1]).cast(DateType())
             )
-        if part == "time":
+        if part == "part_time":
             new_frame = new_frame.withColumn(
-                "time", date_format(substring(col("op_ts"), op_ts_def[0], op_ts_def[1]).cast(TimestampType()), "HH:mm")
+                "part_time",
+                date_format(substring(col("op_ts"), op_ts_def[0], op_ts_def[1]).cast(TimestampType()), "HH:mm"),
             )
 
     return new_frame
+
+
+def show_frame(frame):
+    frame.select(
+        col("table"),
+        col(config_dict["partition_by"][0]),
+        col("op_type"),
+        col("pos"),
+        col("before.offender_id"),
+        col("after.offender_id"),
+        col("before_hash"),
+        col("after_hash"),
+    ).filter((col("before.offender_id").isin({127, 128, 129})) | (col("after.offender_id").isin({127, 128, 129}))).show(
+        10
+    )
 
 
 def union_dfs(prime_df, df_list):
@@ -193,7 +220,11 @@ def start():
     glueContext = GlueContext(SparkContext.getOrCreate())
 
     update_config()
-
+    """        
+    1. Read in event log as json
+    2. add hash field for record contents (before and or after where relevant) and drop tokens
+    
+    """
     local_df_i = read_s3_to_df(gluecontext=glueContext, config=config_dict, key_suffix="inserts")
     local_df_i = add_hash_drop_tokens(frame=local_df_i, hash_fields=["after"])
 
@@ -203,23 +234,17 @@ def start():
     local_df_d = read_s3_to_df(gluecontext=glueContext, config=config_dict, key_suffix="deletes")
     local_df_d = add_hash_drop_tokens(frame=local_df_d, hash_fields=["before"])
 
+    """3. Union together"""
+
     local_df_out = union_dfs(prime_df=local_df_i, df_list=[local_df_u, local_df_d])
+
+    """4. Add Partition field(s)"""
 
     local_df_out = add_partitions_from_op_ts(config=config_dict, frame=local_df_out)
 
-    local_df_out.select(
-        col("table"),
-        col("date"),
-        col("op_type"),
-        col("pos"),
-        col("before.offender_id"),
-        col("after.offender_id"),
-        col("before_hash"),
-        col("after_hash"),
-    ).filter((col("before.offender_id").isin({127, 128, 129})) | (col("after.offender_id").isin({127, 128, 129}))).show(
-        10
-    )
+    show_frame(local_df_out)
 
+    """5. write to target"""
     out_dyf = DynamicFrame.fromDF(local_df_out, glueContext, "out_dyf")
 
     write_frame(gluecontext=glueContext, config=config_dict, frame=out_dyf)

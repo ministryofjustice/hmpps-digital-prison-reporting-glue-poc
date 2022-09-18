@@ -34,13 +34,13 @@ global_dict = dict(
 
 input_path = config_dict["source_bucket"] + "/" + config_dict["source"]
 output_path = (
-        config_dict["target_bucket"]
-        + "/"
-        + config_dict["target_json"]
-        + "/"
-        + config_dict["schema"]
-        + "/"
-        + config_dict["table"]
+    config_dict["target_bucket"]
+    + "/"
+    + config_dict["target_json"]
+    + "/"
+    + config_dict["schema"]
+    + "/"
+    + config_dict["table"]
 )
 
 glueContext = GlueContext(SparkContext.getOrCreate())
