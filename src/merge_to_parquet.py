@@ -24,8 +24,8 @@ USE_CATALOG = False
 
 # configuration
 config_dict = dict(
-    source_bucket="dpr-demo-development-20220906101710889000000001",
-    target_bucket="dpr-demo-development-20220906101710889000000001",
+    source_bucket="dpr-demo-development-20220916083016121000000001",
+    target_bucket="dpr-demo-development-20220916083016121000000001",
     source="data/dummy/source/OFFENDERS_202209061845.json",
     target_json="data/dummy/kinesis/transac/json/",
     target_parquet="data/dummy/kinesis/transac/parquet/",

@@ -26,6 +26,24 @@ apply goldengate events log to target
         Ingest goldengate events logs from parquet on s3
         apply events appropriately to target table
         commit target table as delta on s3
+        
+    Logical steps:
+        1. Read in event log and map to target schema
+        2. Read in target table
+        3. Get unique key list from event log
+        4. Extract Records to be considered from target
+        5. Remove Records to be considered from target
+        6. Identify first event in change log for new records
+        7. Union steps 4 and 6
+        8. Apply event log to step 7
+        9. Union applied events with unconsidered records (5 and 8)
+        10. Write to target
+   
+   Noites : To run in glue_etl docker
+        1. Copy this script to /jupyter_workspace/src
+        3. execute with delta support (see readme) 
+
+        
     ToDo: 
         refactor methods into src/lib/
         enhance commentary
@@ -114,8 +132,6 @@ def get_schema(with_event_type=False, prefix=False):
 
 def get_primary_key():
     return "offender_id"
-
-
 
 
 temp_dataframe = None
@@ -503,9 +519,11 @@ def start():
     temp_schema = get_schema(with_event_type=True)
 
     target_key = get_primary_key()
-
+    """1. Read in event log map to schema"""
     df_event_log = read_s3_to_df(gluecontext=glueContext, config=config_gg_events)  # , key_suffix="date=2022-09-13")
+    df_event_log = df_event_log.rdd.map(lambda row: mapper(row_in=row, schema=temp_schema)).toDF(schema=temp_schema)
 
+    """2. Read in target table"""
     df_table_in = read_s3_to_df(gluecontext=glueContext, config=config_target_table)
     # df_table_in = df_table_in.withColumn("status", lit(0))
 
@@ -514,20 +532,19 @@ def start():
 
     # show_table(df_table_in)
 
-    df_event_log = df_event_log.rdd.map(lambda row: mapper(row_in=row, schema=temp_schema)).toDF(schema=temp_schema)
-
+    """3. Get unique key list from event log"""
     df_unique_key = rename_columns(frame=df_event_log.select(target_key).distinct())
 
     # consider events against existing records
 
     show_events(df_event_log)
-
+    """4. Extract Records to be considered from target"""
     df_to_consider = df_table_in.join(
         df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "inner"
     ).drop("__{}".format(target_key))
 
     # df_to_consider = df_to_consider.withColumn("__action", lit(""))
-
+    """5. Remove Records to be considered from target"""
     df_unique_applied_key = df_to_consider.select(target_key).distinct()
 
     df_new_key = (
@@ -538,6 +555,13 @@ def start():
             .drop(target_key)
     )
 
+    df_table_in = (
+        df_table_in.join(df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "left")
+            .filter(col("__{}".format(target_key)).isNull())
+            .drop("__{}".format(target_key))
+    )
+
+    """6. Identify first event in change log for new records"""
     w = Window.partitionBy(target_key)
     df_primary_events = (
         df_event_log.withColumn("minpos", min("admin_gg_pos").over(w))
@@ -551,8 +575,10 @@ def start():
         df_new_key, df_primary_events[target_key] == df_new_key["__{}".format(target_key)], "inner"
     ).drop("__{}".format(target_key))
 
+    """7. Union steps 4 and 6"""
     df_to_consider = df_to_consider.unionByName(df_to_consider_2)
 
+    """8. Apply event log to step 7"""
     df_to_consider = df_to_consider.withColumn("__action", lit(""))
 
     action_schema = df_to_consider.schema
@@ -567,17 +593,15 @@ def start():
 
     show_bef_after_applied(df_to_consider, df_applied)
 
-    df_table_in = (
-        df_table_in.join(df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "left")
-            .filter(col("__{}".format(target_key)).isNull())
-            .drop("__{}".format(target_key))
-    )
-
+    """9. Union applied events with unconsidered records (5 and 8)"""
     df_applied = df_applied.filter(col("__action").isin({"U", "I"})).drop("__action")
     df_table_out = df_applied.unionByName(df_table_in, allowMissingColumns=True)
+
+
     df_table_out = df_table_out.withColumn(config_target_table["partition_by"][0], col("create_date"))
     show_table(df_table_out)
 
+    """10. Write to target"""
     write_delta(config=config_target_table, frame=df_table_out)
     # out_dyf = DynamicFrame.fromDF(df_table_out, glueContext, "out_dyf")
     # config_target_table["path"] = config_target_table["path_delta"]
