@@ -75,7 +75,7 @@ JupyterLab will be available at
 http://localhost:8888/lab
 ```
 ###Run Script with delta support
-
+Download required jar from https://repo1.maven.org/maven2/io/delta/
 
 copy delta jar to  ~/jupyter_workspace/lib/delta-core_2.12-0.8.0.jar
 copy scripts to ~/jupyter_workspace/src/
