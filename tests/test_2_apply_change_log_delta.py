@@ -43,65 +43,7 @@ def test_update_config(spark_session):
 
     assert config_target_table["path"] == "./tests/data/dummy/database/oms_owner/offenders"
     assert config_gg_events["path"] == './tests/data/dummy/kinesis/transac/parquet/oms_owner/offenders'
+    test_schema.fields.append(StructField("event_type", StringType(), True))
+    test_schema.fields.append(StructField("previous_hash", StringType(), True))
 
-    temp_schema = get_schema(with_event_type=True)
-
-    target_key = get_primary_key()
-
-    assert temp_schema == test_schema
-    assert target_key == "offender_id"
-
-    df_event_log = spark_session.read.parquet(config_gg_events["path"])  # , key_suffix="date=2022-09-13")
-    df_event_log = df_event_log.rdd.map(lambda row: mapper(row_in=row, schema=temp_schema)).toDF(schema=temp_schema)
-
-    df_table_in = spark_session.read.parquet(config_target_table["path"])
-
-    show_table(df_table_in)
-    show_events(df_event_log)
-
-    """3. Get unique key list from event log"""
-    df_unique_key = rename_columns(frame=df_event_log.select(target_key).distinct())
-
-
-
-    """4. Extract Records to be considered from target"""
-    df_to_consider = df_table_in.join(
-        df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "inner"
-    ).drop("__{}".format(target_key))
-
-    """5. Remove Records to be considered from target"""
-
-    df_to_ignore = df_table_in.join(
-        df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "left"
-    ).filter(col("__{}".format(target_key)).isNull()).drop("__{}".format(target_key))
-
-    show_table(df_to_consider)
-    show_table(df_to_ignore)
-
-
-    """6. Identify first event in change log for new records"""
-    df_unique_applied_key = df_to_consider.select(target_key).distinct()
-
-    df_new_key = (
-        df_unique_key.join(
-            df_unique_applied_key, df_unique_applied_key[target_key] == df_unique_key["__{}".format(target_key)], "left"
-        )
-        .filter(col(target_key).isNull())
-        .drop(target_key)
-    )
-
-
-    w = Window.partitionBy(target_key)
-    df_primary_events = (
-        df_event_log.withColumn("minpos", min("admin_gg_pos").cast(IntegerType()).over(w))
-        .where(col("admin_gg_pos").cast(IntegerType()) == col("minpos"))
-        .drop("minpos")
-    )
-
-    df_primary_events = df_primary_events.drop("event_type").drop("previous_hash")
-
-    df_to_consider_2 = df_primary_events.join(
-        df_new_key, df_primary_events[target_key] == df_new_key["__{}".format(target_key)], "inner"
-    ).drop("__{}".format(target_key))
-
-    show_table(df_to_consider_2)
+    print(test_schema)
