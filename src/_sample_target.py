@@ -1,12 +1,12 @@
 from time import strptime
 
-from pyspark.shell import spark
+# from pyspark.shell import spark
 from pyspark.sql.functions import *
 from pyspark.sql.types import DateType, TimestampType, Row
 import datetime
 
 """
-apply goldengate events log to target
+create a target table from dummy gg events at base
 
 
 """
@@ -125,7 +125,7 @@ def update_config():
     config_dict["read_path"] = (
         config_dict["source_bucket"]
         + "/"
-        + config_dict["target_parquet"]
+        + config_dict["target_json"]
         + "/"
         + config_dict["schema"]
         + "/"
@@ -294,6 +294,37 @@ def mapper(row_in, schema):
     return Row(**new_row_dict)
 
 
+def add_hash_drop_tokens(frame, hash_fields):
+    """
+    drop tokens fields from goldengate data and add hash of records event pertains to
+    :param frame: spark dataframe
+    :param hash_fields: fields to be hashed (before and/or after)
+    :return: spark dataframe
+    """
+    new_frame = frame.drop(col("tokens"))
+    for hash_field in hash_fields:
+        hash_name = "{}_hash".format(hash_field)
+        new_frame = new_frame.withColumn(hash_name, hash(hash_field))
+    return new_frame
+
+
+def show_table(table_df):
+    print("##########################################")
+    print("existing records:", table_df.count())
+    print("example")
+    table_df.select(
+        col("offender_id"),
+        col("title"),
+        col("create_date"),
+        col("admin_hash"),
+        col("admin_gg_pos"),
+        col("admin_event_ts"),
+        # col("__action"),
+    ).filter((col("offender_id").isin({1061, 873, 150, 127, 128, 129}))).show(10)
+
+    print("##########################################")
+
+
 def start():
     """
     start the processing
@@ -304,10 +335,12 @@ def start():
 
     glueContext = GlueContext(SparkContext.getOrCreate())
 
+    update_config()
+
     target_schema = get_schema()
 
-    df = read_s3_to_df(gluecontext=glueContext, config=config_dict, key_suffix="date=2022-09-01")
-    df = load_sample_to_df()
+    df = read_s3_to_df(gluecontext=glueContext, config=config_dict, key_suffix="base")
+    df = add_hash_drop_tokens(frame=df, hash_fields=["after"])
 
     temp_rdd = df.rdd.map(lambda row: mapper(row_in=row, schema=target_schema))
 
@@ -316,7 +349,10 @@ def start():
 
     # write_frame(gluecontext=glueContext, config=config_dict, frame=out_dyf)
     write_delta(config=config_dict, frame=local_df_out)
+    show_table(local_df_out)
 
 
 if __name__ == "__main__":
+    from pyspark.shell import spark
+
     start()

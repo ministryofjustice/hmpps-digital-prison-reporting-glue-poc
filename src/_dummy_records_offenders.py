@@ -159,6 +159,7 @@ for rec in inputs:
 dfout_i = spark.read.json(sc.parallelize(json_list_i))
 dfout_u = spark.read.json(sc.parallelize(json_list_u))
 dfout_d = spark.read.json(sc.parallelize(json_list_d))
+dfout_b = spark.read.json(sc.parallelize(json_list_b))
 # dfout = sc.parallelize(json_list).toDF()
 
 # dfout_u.show(2, truncate=False)
@@ -166,14 +167,16 @@ dfout_d = spark.read.json(sc.parallelize(json_list_d))
 out_dyf = DynamicFrame.fromDF(dfout_i, glueContext, "out_dyf")
 out_dyf_u = DynamicFrame.fromDF(dfout_u, glueContext, "out_dyf_u")
 out_dyf_d = DynamicFrame.fromDF(dfout_d, glueContext, "out_dyf_d")
+out_dyf_b = DynamicFrame.fromDF(dfout_b, glueContext, "out_dyf_b")
 
 print("records", rec_count)
+print("BASE", out_dyf_b.count())
 print("INSERTS", out_dyf.count())
 print("updates", out_dyf_u.count())
 print("deletes", out_dyf_d.count())
 
 glueContext.write_dynamic_frame.from_options(
-    frame=out_dyf,
+    frame=out_dyf_b,
     connection_type="s3",
     connection_options={"path": "s3://{}/base/".format(output_path)},
     format="json",

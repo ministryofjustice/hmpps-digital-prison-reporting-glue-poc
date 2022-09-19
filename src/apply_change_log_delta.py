@@ -1,4 +1,3 @@
-from pyspark.shell import spark
 from pyspark.sql.functions import *
 from pyspark.sql.types import DateType, TimestampType, Row
 from pyspark.sql import Window
@@ -26,7 +25,7 @@ apply goldengate events log to target
         Ingest goldengate events logs from parquet on s3
         apply events appropriately to target table
         commit target table as delta on s3
-        
+
     Logical steps:
         1. Read in event log and map to target schema
         2. Read in target table
@@ -38,23 +37,23 @@ apply goldengate events log to target
         8. Apply event log to step 7
         9. Union applied events with unconsidered records (5 and 8)
         10. Write to target
-   
+
    Noites : To run in glue_etl docker
         1. Copy this script to /jupyter_workspace/src
         3. execute with delta support (see readme) 
 
-        
+
     ToDo: 
         refactor methods into src/lib/
         enhance commentary
         resolve dynamic frame read/write catalog (requires glue catalog)
         resolve dynamic frame read write to delta tables
-        
+
 
 """
 __author__ = "frazer.clayton@digital.justice.gov.uk"
 
-BUCKET_SUFFIX = "20220906101710889000000001"
+BUCKET_SUFFIX = "20220916083016121000000001"
 # use glue catalog True/False
 USE_CATALOG = False
 
@@ -144,7 +143,7 @@ config_gg_events = dict(
 )
 config_target_table = dict(
     target_bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
-    target_final="data/dummy/database/",
+    target_final="data/dummy/database",
     schema="oms_owner",
     table="offenders",
     # partition_by = ["date", "time"]
@@ -159,33 +158,33 @@ def update_config():
     """
 
     config_gg_events["path"] = (
-        config_gg_events["source_bucket"]
-        + "/"
-        + config_gg_events["source"]
-        + "/"
-        + config_gg_events["schema"]
-        + "/"
-        + config_gg_events["table"]
+            config_gg_events["source_bucket"]
+            + "/"
+            + config_gg_events["source"]
+            + "/"
+            + config_gg_events["schema"]
+            + "/"
+            + config_gg_events["table"]
     )
 
     config_target_table["path"] = (
-        config_target_table["target_bucket"]
-        + "/"
-        + config_target_table["target_final"]
-        + "/"
-        + config_target_table["schema"]
-        + "/"
-        + config_target_table["table"]
+            config_target_table["target_bucket"]
+            + "/"
+            + config_target_table["target_final"]
+            + "/"
+            + config_target_table["schema"]
+            + "/"
+            + config_target_table["table"]
     )
 
     config_target_table["path_delta"] = (
-        config_target_table["target_bucket"]
-        + "/"
-        + config_target_table["target_final"]
-        + "/delta/"
-        + config_target_table["schema"]
-        + "/"
-        + config_target_table["table"]
+            config_target_table["target_bucket"]
+            + "/"
+            + config_target_table["target_final"]
+            + "/delta/"
+            + config_target_table["schema"]
+            + "/"
+            + config_target_table["table"]
     )
 
 
@@ -234,7 +233,17 @@ def write_s3(gluecontext, config, frame):
 
 def write_delta(config, frame):
     # Write data as DELTA TABLE
-    frame.write.format("delta").mode("overwrite").save("s3://{}/".format(config["path_delta"]))
+    frame.write.format("delta").mode("overwrite").save("s3://{}/".format(config["path"]))
+
+    # Generate MANIFEST file for Athena/Catalog
+    # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path_delta"]))
+    # deltaTable.generate("symlink_format_manifest")
+
+
+def read_delta(config):
+    # Write data as DELTA TABLE
+    frame = spark.read.format("delta").load("s3://{}/".format(config["path"]))
+    return frame
 
     # Generate MANIFEST file for Athena/Catalog
     # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path_delta"]))
@@ -454,7 +463,7 @@ def show_table(table_df):
         col("admin_gg_pos"),
         col("admin_event_ts"),
         # col("__action"),
-    ).filter((col("offender_id").isin({1061, 873, 127, 128, 129}))).show(10)
+    ).filter((col("offender_id").isin({1061, 873, 141, 150, 127, 128, 129}))).show(10)
 
     print("##########################################")
 
@@ -471,7 +480,9 @@ def show_events(event_df):
         col("admin_gg_pos"),
         col("admin_event_ts"),
         col("event_type"),
-    ).filter((col("offender_id").isin({1061, 873, 127, 128, 129}))).sort("offender_id", "admin_gg_pos").show(30)
+    ).filter((col("offender_id").isin({1061, 873, 141, 150, 127, 128, 129}))).sort("offender_id", "admin_gg_pos").show(
+        30
+    )
     print("##########################################")
 
 
@@ -487,7 +498,7 @@ def show_bef_after_applied(df_to_consider, df_applied):
         col("admin_gg_pos"),
         col("admin_event_ts"),
         col("__action"),
-    ).filter((col("offender_id").isin({1061, 873, 127, 128, 129}))).show(10)
+    ).filter((col("offender_id").isin({1061, 873, 141, 150, 127, 128, 129}))).show(10)
 
     print("records applied:", df_applied.count())
     print("example")
@@ -499,7 +510,7 @@ def show_bef_after_applied(df_to_consider, df_applied):
         col("admin_gg_pos"),
         col("admin_event_ts"),
         col("__action"),
-    ).filter((col("offender_id").isin({1061, 873, 127, 128, 129}))).show(50)
+    ).filter((col("offender_id").isin({1061, 873, 141, 150, 127, 128, 129}))).show(50)
 
     print("##########################################")
 
@@ -524,7 +535,7 @@ def start():
     df_event_log = df_event_log.rdd.map(lambda row: mapper(row_in=row, schema=temp_schema)).toDF(schema=temp_schema)
 
     """2. Read in target table"""
-    df_table_in = read_s3_to_df(gluecontext=glueContext, config=config_target_table)
+    df_table_in = read_delta(config=config_target_table)
     # df_table_in = df_table_in.withColumn("status", lit(0))
 
     # df_event_log.show()
@@ -543,30 +554,29 @@ def start():
         df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "inner"
     ).drop("__{}".format(target_key))
 
-    # df_to_consider = df_to_consider.withColumn("__action", lit(""))
     """5. Remove Records to be considered from target"""
+
+    df_to_remain = (
+        df_table_in.join(df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "left")
+            .filter(col("__{}".format(target_key)).isNull())
+            .drop("__{}".format(target_key))
+    )
+
+    """6. Identify first event in change log for new records"""
     df_unique_applied_key = df_to_consider.select(target_key).distinct()
 
     df_new_key = (
         df_unique_key.join(
             df_unique_applied_key, df_unique_applied_key[target_key] == df_unique_key["__{}".format(target_key)], "left"
         )
-        .filter(col(target_key).isNull())
-        .drop(target_key)
+            .filter(col(target_key).isNull())
+            .drop(target_key)
     )
-
-    df_table_in = (
-        df_table_in.join(df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "left")
-        .filter(col("__{}".format(target_key)).isNull())
-        .drop("__{}".format(target_key))
-    )
-
-    """6. Identify first event in change log for new records"""
     w = Window.partitionBy(target_key)
     df_primary_events = (
         df_event_log.withColumn("minpos", min("admin_gg_pos").over(w))
-        .where(col("admin_gg_pos") == col("minpos"))
-        .drop("minpos")
+            .where(col("admin_gg_pos") == col("minpos"))
+            .drop("minpos")
     )
 
     df_primary_events = df_primary_events.drop("event_type").drop("previous_hash")
@@ -595,17 +605,21 @@ def start():
 
     """9. Union applied events with unconsidered records (5 and 8)"""
     df_applied = df_applied.filter(col("__action").isin({"U", "I"})).drop("__action")
-    df_table_out = df_applied.unionByName(df_table_in, allowMissingColumns=True)
+    df_table_out = df_applied.unionByName(df_to_remain, allowMissingColumns=True)
 
     df_table_out = df_table_out.withColumn(config_target_table["partition_by"][0], col("create_date"))
-    show_table(df_table_out)
 
     """10. Write to target"""
-    write_delta(config=config_target_table, frame=df_table_out)
+    # write_delta(config=config_target_table, frame=df_table_out)
     # out_dyf = DynamicFrame.fromDF(df_table_out, glueContext, "out_dyf")
     # config_target_table["path"] = config_target_table["path_delta"]
     # write_frame(gluecontext=glueContext, config=config_target_table, frame=out_dyf)
+    show_table(df_table_in)
+    show_events(df_event_log)
+    # show_table(df_table_out)
 
 
 if __name__ == "__main__":
+    from pyspark.shell import spark
+
     start()
