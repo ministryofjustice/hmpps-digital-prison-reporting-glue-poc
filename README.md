@@ -27,6 +27,9 @@
 
 scripts in src prefixed _ are for dev and generating dummy records
 
+gg_logs_to_parquet - converts goldengate logs to parquet
+apply_change_log_to_delta - applies changes in log to delta tables
+
 #### Confluence Page:
 
 [TBC]()
