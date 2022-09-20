@@ -1,48 +1,45 @@
 from pyspark.sql.functions import *
 from pyspark.sql.types import DateType, TimestampType
 
-
 """
 merge goldengate events log to parquet 
     Resolution:
         Ingest raw goldengate events logs 
         commit goldengate events log to parquet on s3
-        
+
     Logical steps:
         1. Read in event log as json
         2. add hash field for record contents (before and or after where relevant) and drop tokens
         3. Union together
         4. Add Partition field(s)
         5. write to target
-   
+
    Notes : To run in glue_etl docker
         1. Copy this script to /jupyter_workspace/src
         3. execute with delta support (see readme) 
-        
+
     ToDo: 
         refactor methods into src/lib/ - maybe not possible in glue etl
         enhance commentary
         resolve dynamic frame read/write catalog (requires glue catalog)
 
-        
+
 
 """
 __author__ = "frazer.clayton@digital.justice.gov.uk"
 
-
+BUCKET_SUFFIX = "20220916083016121000000001"
 # use glue catalog True/False
 USE_CATALOG = False
 
 # configuration
 config_dict = dict(
-    source_bucket="dpr-demo-development-20220916083016121000000001",
-    target_bucket="dpr-demo-development-20220916083016121000000001",
-    source="data/dummy/source/OFFENDERS_202209061845.json",
+    source_bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
+    target_bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
     target_json="data/dummy/kinesis/transac/json/",
     target_parquet="data/dummy/kinesis/transac/parquet/",
     schema="oms_owner",
-    table="offenders",
-    # partition_by = ["date", "time"]
+    table="all",
     partition_by=["part_date"],
 )
 
@@ -54,23 +51,23 @@ def update_config():
     """
 
     config_dict["read_path"] = (
-        config_dict["source_bucket"]
-        + "/"
-        + config_dict["target_json"]
-        + "/"
-        + config_dict["schema"]
-        + "/"
-        + config_dict["table"]
+            config_dict["source_bucket"]
+            + "/"
+            + config_dict["target_json"]
+            + "/"
+            + config_dict["schema"]
+            + "/"
+            + config_dict["table"]
     )
 
     config_dict["write_path"] = (
-        config_dict["target_bucket"]
-        + "/"
-        + config_dict["target_parquet"]
-        + "/"
-        + config_dict["schema"]
-        + "/"
-        + config_dict["table"]
+            config_dict["target_bucket"]
+            + "/"
+            + config_dict["target_parquet"]
+            + "/"
+            + config_dict["schema"]
+            + "/"
+            + config_dict["table"]
     )
 
 
@@ -128,7 +125,7 @@ def write_frame(gluecontext, config, frame):
         write_s3(gluecontext=gluecontext, config=config, frame=frame)
 
 
-def read_s3_to_df(gluecontext, config, key_suffix):
+def read_s3_to_df(gluecontext, config, ):
     """
     Read from S3 into Dataframe
     :param gluecontext: Glue context
@@ -138,7 +135,7 @@ def read_s3_to_df(gluecontext, config, key_suffix):
     """
     input_dydf = gluecontext.create_dynamic_frame_from_options(
         connection_type="s3",
-        connection_options={"paths": ["s3://{}/{}/".format(config["read_path"], key_suffix)]},
+        connection_options={"paths": ["s3://{}/".format(config["read_path"])]},
         format="json",
     )
     return input_dydf.toDF()
@@ -223,20 +220,13 @@ def start():
     """        
     1. Read in event log as json
     2. add hash field for record contents (before and or after where relevant) and drop tokens
-    
+
     """
-    local_df_i = read_s3_to_df(gluecontext=glueContext, config=config_dict, key_suffix="inserts")
-    local_df_i = add_hash_drop_tokens(frame=local_df_i, hash_fields=["after"])
 
-    local_df_u = read_s3_to_df(gluecontext=glueContext, config=config_dict, key_suffix="updates")
-    local_df_u = add_hash_drop_tokens(frame=local_df_u, hash_fields=["after", "before"])
-
-    local_df_d = read_s3_to_df(gluecontext=glueContext, config=config_dict, key_suffix="deletes")
-    local_df_d = add_hash_drop_tokens(frame=local_df_d, hash_fields=["before"])
+    local_df_u = read_s3_to_df(gluecontext=glueContext, config=config_dict, )
+    local_df_out = add_hash_drop_tokens(frame=local_df_u, hash_fields=["after", "before"])
 
     """3. Union together"""
-
-    local_df_out = union_dfs(prime_df=local_df_i, df_list=[local_df_u, local_df_d])
 
     """4. Add Partition field(s)"""
 

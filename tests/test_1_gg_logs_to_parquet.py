@@ -4,7 +4,7 @@ from pyspark import Row
 from pyspark.sql.functions import col
 
 #from src._sample_target import get_schema
-from src.merge_to_parquet import update_config, config_dict, add_hash_drop_tokens, union_dfs, add_partitions_from_op_ts
+from src.gg_logs_to_parquet import update_config, config_dict, add_hash_drop_tokens, union_dfs, add_partitions_from_op_ts
 
 
 def test_update_config():

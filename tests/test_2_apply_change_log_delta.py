@@ -2,7 +2,7 @@ from pyspark.sql import Window
 from pyspark.sql.functions import col
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DateType, TimestampType
 
-from src.apply_change_log_delta import update_config, config_gg_events, config_target_table, get_schema, \
+from src.apply_change_log_to_delta import update_config, config_gg_events, config_target_table, get_schema, \
     get_primary_key, mapper, show_table, rename_columns, show_events
 
 test_schema = StructType(

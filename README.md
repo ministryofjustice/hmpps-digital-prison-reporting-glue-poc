@@ -18,8 +18,14 @@
 - [ ] Deployment Strategy
 - [ ] dependabot.yml file
 - [ ] refactor code
+- [ ] change before and after fields in parquet to string (avoid large complex field)
+- [ ] add tx message on table change (kenesis)
+- [ ] acquire s3 bucket/key from glue catalog
+- [ ] perhaps combine into single python script
 
 ## Details
+
+scripts in src prefixed _ are for dev and generating dummy records
 
 #### Confluence Page:
 

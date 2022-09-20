@@ -1,5 +1,5 @@
-from src._sample_target import mapper, show_table
-from src.merge_to_parquet import config_dict, add_hash_drop_tokens
+from src._sample_target_offenders import mapper, show_table
+from src._merge_gg_logs_to_parquet_by_table import config_dict, add_hash_drop_tokens
 from src.schema.offenders import get_schema
 
 

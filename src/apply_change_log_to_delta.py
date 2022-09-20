@@ -27,8 +27,9 @@ apply goldengate events log to target
         commit target table as delta on s3
 
     Logical steps:
+        0. Read In event log and get tables to be considers
         1. Read in target table and extract schema
-        2. Read in event log and map to target schema
+        2. map event log to target schema
         3. Get unique key list from event log
         4. Extract Records to be considered from target
         5. Remove Records to be considered from target
@@ -87,57 +88,18 @@ def __type_for(datatype):
     return get_type(datatype)
 
 
-ddl = (
-    "OFFENDER_ID number,OFFENDER_NAME_SEQ number,ID_SOURCE_CODE varchar2(48),LAST_NAME varchar2(140),NAME_TYPE "
-    "varchar2(48),FIRST_NAME varchar2(140),MIDDLE_NAME varchar2(140),BIRTH_DATE date,SEX_CODE varchar2(48),"
-    "SUFFIX varchar2(48),LAST_NAME_SOUNDEX varchar2(24),BIRTH_PLACE varchar2(100),BIRTH_COUNTRY_CODE varchar2(48),"
-    "CREATE_DATE date,LAST_NAME_KEY varchar2(140),ALIAS_OFFENDER_ID number,FIRST_NAME_KEY varchar2(140),"
-    "MIDDLE_NAME_KEY varchar2(140),OFFENDER_ID_DISPLAY varchar2(40),ROOT_OFFENDER_ID number,CASELOAD_TYPE varchar2("
-    "48),MODIFY_USER_ID varchar2(128),MODIFY_DATETIME timestamp(9),ALIAS_NAME_TYPE varchar2(48),PARENT_OFFENDER_ID "
-    "number,UNIQUE_OBLIGATION_FLAG varchar2(4),SUSPENDED_FLAG varchar2(4),SUSPENDED_DATE date,RACE_CODE varchar2("
-    "48),REMARK_CODE varchar2(48),ADD_INFO_CODE varchar2(48),BIRTH_COUNTY varchar2(80),BIRTH_STATE varchar2(80),"
-    "MIDDLE_NAME_2 varchar2(140),TITLE varchar2(48),AGE number,CREATE_USER_ID varchar2(160),LAST_NAME_ALPHA_KEY "
-    "varchar2(4),CREATE_DATETIME timestamp(9),NAME_SEQUENCE varchar2(48),AUDIT_TIMESTAMP timestamp(9),AUDIT_USER_ID "
-    "varchar2(128),AUDIT_MODULE_NAME varchar2(260),AUDIT_CLIENT_USER_ID varchar2(256),AUDIT_CLIENT_IP_ADDRESS "
-    "varchar2(156),AUDIT_CLIENT_WORKSTATION_NAME varchar2(256),AUDIT_ADDITIONAL_INFO varchar2(1024)"
-)
+records_of_interest = {1061, 873, 141, 150, 127, 128, 129}
 
 
-def get_schema(with_event_type=False, prefix=False):
-    field_list = ddl.split(",")
-    struct_list = []
-
-    for field in field_list:
-        field_name, field_type = field.split(" ")
-        field_name = field_name.lower()
-        field_type = field_type.split("(")[0].lower()
-        if prefix:
-            prefix = "__"
-        else:
-            prefix = ""
-        field_name = "{}{}".format(prefix, field_name)
-
-        struct_list.append(StructField(field_name, __type_for(field_type), True))
-
-    struct_list.append(StructField("{}admin_hash".format(prefix), StringType(), True))
-    struct_list.append(StructField("{}admin_gg_pos".format(prefix), StringType(), True))
-    struct_list.append(StructField("{}admin_gg_op_ts".format(prefix), TimestampType(), True))
-    struct_list.append(StructField("{}admin_event_ts".format(prefix), TimestampType(), True))
+def update_schema(schema, with_event_type=False, prefix=False):
+    struct_list = schema.fields
     if with_event_type:
         struct_list.append(StructField("event_type", StringType(), True))
         struct_list.append(StructField("previous_hash", StringType(), True))
         struct_list.append(StructField("table", StringType(), True))
         struct_list.append(StructField("schema", StringType(), True))
+
     return StructType(struct_list)
-
-
-def update_schema(schema, with_event_type=False, prefix=False):
-
-    if with_event_type:
-        schema.fields.append(StructField("event_type", StringType(), True))
-        schema.fields.append(StructField("previous_hash", StringType(), True))
-
-    return schema
 
 
 def get_primary_key():
@@ -147,14 +109,22 @@ def get_primary_key():
 temp_dataframe = None
 # configuration
 config_gg_events = dict(
-    source_bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
-    source="data/dummy/kinesis/transac/parquet",
+    bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
+    key="data/dummy/kinesis/transac/parquet",
+    schema="oms_owner",
+    table="all",
+)
+config_source_table = dict(
+    bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
+    key="data/dummy/database",
     schema="oms_owner",
     table="offenders",
+    # partition_by = ["date", "time"]
+    partition_by=["part_date"],
 )
 config_target_table = dict(
-    target_bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
-    target_final="data/dummy/database",
+    bucket="dpr-structured-development-20220916083016132200000004",
+    key="data/dummy/database",
     schema="oms_owner",
     table="offenders",
     # partition_by = ["date", "time"]
@@ -162,41 +132,49 @@ config_target_table = dict(
 )
 
 
-def update_config():
+def update_config(target_table=None):
     """
     Update configuration with elements describing paths to data
     :return: None
     """
+    _target_table = config_target_table["table"]
+    if target_table is not None:
+        _target_table = target_table
 
     config_gg_events["path"] = (
-        config_gg_events["source_bucket"]
-        + "/"
-        + config_gg_events["source"]
-        + "/"
-        + config_gg_events["schema"]
-        + "/"
-        + config_gg_events["table"]
+            config_gg_events["bucket"]
+            + "/"
+            + config_gg_events["key"]
+            + "/"
+            + config_gg_events["schema"]
+            + "/"
+            + config_gg_events["table"]
+    )
+
+    config_source_table["path"] = (
+            config_source_table["bucket"]
+            + "/"
+            + config_source_table["key"]
+            + "/"
+            + config_source_table["schema"]
+            + "/"
+            + _target_table
     )
 
     config_target_table["path"] = (
-        config_target_table["target_bucket"]
-        + "/"
-        + config_target_table["target_final"]
-        + "/"
-        + config_target_table["schema"]
-        + "/"
-        + config_target_table["table"]
+            config_target_table["bucket"]
+            + "/"
+            + config_target_table["key"]
+            + "/delta/"
+            + config_target_table["schema"]
+            + "/"
+            + _target_table
     )
 
-    config_target_table["path_delta"] = (
-        config_target_table["target_bucket"]
-        + "/"
-        + config_target_table["target_final"]
-        + "/delta/"
-        + config_target_table["schema"]
-        + "/"
-        + config_target_table["table"]
-    )
+
+def get_target_table_name(gg_table_name):
+    _tt_name = gg_table_name.split(".")[1].lower()
+    return _tt_name
 
 
 def write_catalog(gluecontext, config, frame):
@@ -373,9 +351,7 @@ def mapper(row_in, schema):
     row_dict = row_out.asDict()
 
     for fld_name in row_dict:
-        if fld_name.lower() == "modified_datetime":
-            new_row_dict["modify_datetime"] = row_dict[fld_name]
-        else:
+        if fld_name.lower() in new_row_dict:
             new_row_dict[fld_name.lower()] = format_field(
                 schema=schema, fldname=fld_name.lower(), fld_val=row_dict[fld_name]
             )
@@ -386,8 +362,8 @@ def mapper(row_in, schema):
     new_row_dict["admin_gg_op_ts"] = format_field(schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
     new_row_dict["admin_event_ts"] = datetime.datetime.now()
     new_row_dict["event_type"] = row_in["op_type"]
-    new_row_dict["table"] = row_in["table"].split('.')[1]
-    new_row_dict["schema"] = row_in["table"].split('.')[0]
+    new_row_dict["table"] = row_in["table"].split(".")[1]
+    new_row_dict["schema"] = row_in["table"].split(".")[0]
     # print(new_row_dict)
     return Row(**new_row_dict)
 
@@ -452,6 +428,16 @@ def apply_events(row_in, key_field, event_dict):
     return Row(**row_dict)
 
 
+def get_distinct_column_values_from_df(frame, column):
+    out_list = []
+
+    row_array = frame.select(column).distinct().collect()
+    for _row in row_array:
+        out_list.append(_row[column])
+
+    return out_list
+
+
 def rename_columns(frame):
     new_column_name_list = list(map(lambda x: "__{}".format(x), frame.columns))
     return frame.toDF(*new_column_name_list)
@@ -464,12 +450,14 @@ def show_table(table_df):
     table_df.select(
         col("offender_id"),
         col("title"),
+        col("first_name"),
+        col("last_name"),
         col("create_date"),
         col("admin_hash"),
         col("admin_gg_pos"),
         col("admin_event_ts"),
         # col("__action"),
-    ).filter((col("offender_id").isin({1061, 873, 141, 150, 127, 128, 129}))).show(10)
+    ).filter((col("offender_id").isin(records_of_interest))).show(10, truncate=False)
 
     print("##########################################")
 
@@ -478,16 +466,16 @@ def show_events(event_df):
     print("##########################################")
     print("event records:", event_df.count())
     event_df.select(
+        col("table"),
         col("offender_id"),
-        col("title"),
         col("create_date"),
         col("admin_hash"),
         col("previous_hash"),
         col("admin_gg_pos"),
         col("admin_event_ts"),
         col("event_type"),
-    ).filter((col("offender_id").isin({1061, 873, 141, 150, 127, 128, 129}))).sort("offender_id", "admin_gg_pos").show(
-        30
+    ).filter((col("offender_id").isin(records_of_interest))).sort("offender_id", "admin_gg_pos").show(
+        30, truncate=False
     )
     print("##########################################")
 
@@ -499,24 +487,28 @@ def show_bef_after_applied(df_to_consider, df_applied):
     df_to_consider.select(
         col("offender_id"),
         col("title"),
+        col("first_name"),
+        col("last_name"),
         col("create_date"),
         col("admin_hash"),
         col("admin_gg_pos"),
         col("admin_event_ts"),
         col("__action"),
-    ).filter((col("offender_id").isin({1061, 873, 141, 150, 127, 128, 129}))).show(10)
+    ).filter((col("offender_id").isin(records_of_interest))).show(10)
 
     print("records applied:", df_applied.count())
     print("example")
     df_applied.select(
         col("offender_id"),
         col("title"),
+        col("first_name"),
+        col("last_name"),
         col("create_date"),
         col("admin_hash"),
         col("admin_gg_pos"),
         col("admin_event_ts"),
         col("__action"),
-    ).filter((col("offender_id").isin({1061, 873, 141, 150, 127, 128, 129}))).show(50)
+    ).filter((col("offender_id").isin(records_of_interest))).show(50)
 
     print("##########################################")
 
@@ -533,94 +525,108 @@ def start():
 
     update_config()
 
-    temp_schema = get_schema(with_event_type=True)
+    """0. Read In event log and get tables to be considers"""
 
     target_key = get_primary_key()
-    """1. Read in target table and extract schema"""
 
-    df_table_in = read_delta(config=config_target_table)
+    df_event_log_in = read_s3_to_df(gluecontext=glueContext, config=config_gg_events)
 
-    temp_schema = get_schema(with_event_type=True)
+    table_list = get_distinct_column_values_from_df(frame=df_event_log_in, column="table")
 
-    """2. Read in event log map to schema"""
-    df_event_log = read_s3_to_df(gluecontext=glueContext, config=config_gg_events)  # , key_suffix="date=2022-09-13")
-    df_event_log = df_event_log.rdd.map(lambda row: mapper(row_in=row, schema=temp_schema)).toDF(schema=temp_schema)
+    for target_table_name in table_list:
+        print(target_table_name)
 
-    """3. Get unique key list from event log"""
-    df_unique_key = rename_columns(frame=df_event_log.select(target_key).distinct())
+        """1. Read in target table and extract schema"""
+        df_event_log = df_event_log_in.filter(col("table") == target_table_name)
 
-    # consider events against existing records
+        update_config(target_table=get_target_table_name(target_table_name))
 
-    show_events(df_event_log)
-    """4. Extract Records to be considered from target"""
-    df_to_consider = df_table_in.join(
-        df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "inner"
-    ).drop("__{}".format(target_key))
+        print(config_source_table)
 
-    """5. Remove Records to be considered from target"""
+        df_table_in = read_delta(config=config_source_table)
 
-    df_to_remain = (
-        df_table_in.join(df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "left")
-        .filter(col("__{}".format(target_key)).isNull())
-        .drop("__{}".format(target_key))
-    )
+        temp_schema = update_schema(schema=df_table_in.schema, with_event_type=True)
 
-    """6. Identify first event in change log for new records"""
-    df_unique_applied_key = df_to_consider.select(target_key).distinct()
+        """2. map event log to target schema"""
 
-    df_new_events_key = (
-        df_unique_key.join(
-            df_unique_applied_key, df_unique_applied_key[target_key] == df_unique_key["__{}".format(target_key)], "left"
+        df_event_log = df_event_log.rdd.map(lambda row: mapper(row_in=row, schema=temp_schema)).toDF(schema=temp_schema)
+
+        """3. Get unique key list from event log"""
+        df_unique_key = rename_columns(frame=df_event_log.select(target_key).distinct())
+
+        # consider events against existing records
+
+        """4. Extract Records to be considered from target"""
+        df_to_consider = df_table_in.join(
+            df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "inner"
+        ).drop("__{}".format(target_key))
+
+        """5. Remove Records to be considered from target"""
+
+        df_to_remain = (
+            df_table_in.join(df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "left")
+                .filter(col("__{}".format(target_key)).isNull())
+                .drop("__{}".format(target_key))
         )
-        .filter(col(target_key).isNull())
-        .drop(target_key)
-    )
-    w = Window.partitionBy(target_key)
-    df_primary_events = (
-        df_event_log.withColumn("minpos", min("admin_gg_pos").over(w))
-        .where(col("admin_gg_pos") == col("minpos"))
-        .drop("minpos")
-    )
 
-    # drop process only fields from primary events
-    df_primary_events = df_primary_events.drop("event_type").drop("previous_hash")
+        """6. Identify first event in change log for new records"""
+        df_unique_applied_key = df_to_consider.select(target_key).distinct()
 
-    df_to_consider_2 = df_primary_events.join(
-        df_new_events_key, df_primary_events[target_key] == df_new_events_key["__{}".format(target_key)], "inner"
-    ).drop("__{}".format(target_key))
+        df_new_events_key = (
+            df_unique_key.join(
+                df_unique_applied_key,
+                df_unique_applied_key[target_key] == df_unique_key["__{}".format(target_key)],
+                "left",
+            )
+                .filter(col(target_key).isNull())
+                .drop(target_key)
+        )
+        w = Window.partitionBy(target_key)
+        df_primary_events = (
+            df_event_log.withColumn("minpos", min("admin_gg_pos").over(w))
+                .where(col("admin_gg_pos") == col("minpos"))
+                .drop("minpos")
+        )
 
-    """7. Union steps 4 and 6"""
-    df_to_consider = df_to_consider.unionByName(df_to_consider_2)
+        # drop process only fields from primary events
+        df_primary_events = df_primary_events.drop("event_type").drop("previous_hash").drop("table").drop("schema")
 
-    """8. Apply event log to step 7"""
-    df_to_consider = df_to_consider.withColumn("__action", lit(""))
+        df_to_consider_2 = df_primary_events.join(
+            df_new_events_key, df_primary_events[target_key] == df_new_events_key["__{}".format(target_key)], "inner"
+        ).drop("__{}".format(target_key))
 
-    action_schema = df_to_consider.schema
+        """7. Union steps 4 and 6"""
+        df_to_consider = df_to_consider.unionByName(df_to_consider_2)
 
-    df_event_log = df_event_log.sort("admin_gg_pos")
+        """8. Apply event log to step 7"""
+        df_to_consider = df_to_consider.withColumn("__action", lit(""))
 
-    temp_dict_list = convert_to_dict_list(df_event_log)
+        action_schema = df_to_consider.schema
 
-    df_applied = df_to_consider.rdd.map(
-        lambda row: apply_events(row_in=row, key_field=target_key, event_dict=temp_dict_list)
-    ).toDF(schema=action_schema)
+        df_event_log = df_event_log.sort("admin_gg_pos")
 
-    show_bef_after_applied(df_to_consider, df_applied)
+        temp_dict_list = convert_to_dict_list(df_event_log)
 
-    """9. Union applied events with unconsidered records (5 and 8)"""
-    # only consider upsert records
+        df_applied = df_to_consider.rdd.map(
+            lambda row: apply_events(row_in=row, key_field=target_key, event_dict=temp_dict_list)
+        ).toDF(schema=action_schema)
 
-    df_applied = df_applied.filter(col("__action").isin({"U", "I"})).drop("__action")
-    df_table_out = df_applied.unionByName(df_to_remain, allowMissingColumns=True)
+        # show_bef_after_applied(df_to_consider, df_applied)
 
-    # df_table_out = df_table_out.withColumn(config_target_table["partition_by"][0], col("create_date"))
+        """9. Union applied events with unconsidered records (5 and 8)"""
+        # only consider upsert records
 
-    """10. Write to target"""
-    # write_delta(config=config_target_table, frame=df_table_out)
+        df_applied = df_applied.filter(col("__action").isin({"U", "I"})).drop("__action")
+        df_table_out = df_applied.unionByName(df_to_remain, allowMissingColumns=True)
 
-    show_table(df_table_in)
-    show_events(df_event_log)
-    show_table(df_table_out)
+        # df_table_out = df_table_out.withColumn(config_target_table["partition_by"][0], col("create_date"))
+
+        """10. Write to target"""
+        write_delta(config=config_target_table, frame=df_table_out)
+
+        # show_table(df_table_in)
+        # show_events(df_event_log)
+        # show_table(df_table_out)
 
 
 if __name__ == "__main__":
