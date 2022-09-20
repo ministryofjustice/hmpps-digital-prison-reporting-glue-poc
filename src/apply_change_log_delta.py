@@ -34,7 +34,7 @@ apply goldengate events log to target
         5. Remove Records to be considered from target
         6. Identify first event in change log for new records
         7. Union steps 4 and 6
-        8. Apply event log to step 7
+        8. Apply event log to step 7 sequentially to allow for multiple events on same record
         9. Union applied events with unconsidered records (5 and 8)
         10. Write to target
 
@@ -126,6 +126,8 @@ def get_schema(with_event_type=False, prefix=False):
     if with_event_type:
         struct_list.append(StructField("event_type", StringType(), True))
         struct_list.append(StructField("previous_hash", StringType(), True))
+        struct_list.append(StructField("table", StringType(), True))
+        struct_list.append(StructField("schema", StringType(), True))
     return StructType(struct_list)
 
 
@@ -136,6 +138,7 @@ def update_schema(schema, with_event_type=False, prefix=False):
         schema.fields.append(StructField("previous_hash", StringType(), True))
 
     return schema
+
 
 def get_primary_key():
     return "offender_id"
@@ -383,6 +386,8 @@ def mapper(row_in, schema):
     new_row_dict["admin_gg_op_ts"] = format_field(schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
     new_row_dict["admin_event_ts"] = datetime.datetime.now()
     new_row_dict["event_type"] = row_in["op_type"]
+    new_row_dict["table"] = row_in["table"].split('.')[1]
+    new_row_dict["schema"] = row_in["table"].split('.')[0]
     # print(new_row_dict)
     return Row(**new_row_dict)
 
@@ -563,7 +568,7 @@ def start():
     """6. Identify first event in change log for new records"""
     df_unique_applied_key = df_to_consider.select(target_key).distinct()
 
-    df_new_key = (
+    df_new_events_key = (
         df_unique_key.join(
             df_unique_applied_key, df_unique_applied_key[target_key] == df_unique_key["__{}".format(target_key)], "left"
         )
@@ -577,10 +582,11 @@ def start():
         .drop("minpos")
     )
 
+    # drop process only fields from primary events
     df_primary_events = df_primary_events.drop("event_type").drop("previous_hash")
 
     df_to_consider_2 = df_primary_events.join(
-        df_new_key, df_primary_events[target_key] == df_new_key["__{}".format(target_key)], "inner"
+        df_new_events_key, df_primary_events[target_key] == df_new_events_key["__{}".format(target_key)], "inner"
     ).drop("__{}".format(target_key))
 
     """7. Union steps 4 and 6"""
@@ -602,24 +608,19 @@ def start():
     show_bef_after_applied(df_to_consider, df_applied)
 
     """9. Union applied events with unconsidered records (5 and 8)"""
+    # only consider upsert records
+
     df_applied = df_applied.filter(col("__action").isin({"U", "I"})).drop("__action")
     df_table_out = df_applied.unionByName(df_to_remain, allowMissingColumns=True)
 
-    df_table_out = df_table_out.withColumn(config_target_table["partition_by"][0], col("create_date"))
+    # df_table_out = df_table_out.withColumn(config_target_table["partition_by"][0], col("create_date"))
 
     """10. Write to target"""
     # write_delta(config=config_target_table, frame=df_table_out)
-    # out_dyf = DynamicFrame.fromDF(df_table_out, glueContext, "out_dyf")
-    # config_target_table["path"] = config_target_table["path_delta"]
-    # write_frame(gluecontext=glueContext, config=config_target_table, frame=out_dyf)
-    # show_table(df_table_in)
+
     show_table(df_table_in)
     show_events(df_event_log)
     show_table(df_table_out)
-
-
-
-
 
 
 if __name__ == "__main__":
