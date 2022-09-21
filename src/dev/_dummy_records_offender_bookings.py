@@ -1,4 +1,4 @@
-# from awsglue.glue_shell import sc
+from awsglue.glue_shell import sc
 from pyspark import SparkContext
 from awsglue.context import GlueContext
 from awsglue.dynamicframe import DynamicFrame
@@ -12,21 +12,21 @@ from pyspark.shell import spark
 config_dict = dict(
     source_bucket="dpr-demo-development-20220916083016121000000001",
     target_bucket="dpr-demo-development-20220916083016121000000001",
-    source="data/dummy/source/OFFENDERS_202209061845.json",
+    source="data/dummy/source/OFFENDER_BOOKINGS_202209201358.json",
     target_json="data/dummy/kinesis/transac/json/",
     target_parquet="data/dummy/kinesis/transac/parquet/",
     schema="oms_owner",
-    table="offenders",
+    table="offender_bookings",
 )
 
 pos_seed = 1000000
 rec_count = 0
 global_dict = dict(
-    table="OMS_OWNER.OFFENDERS",
+    table="OMS_OWNER.OFFENDER_BOOKINGS",
     op_type="I",
     op_ts="2013-06-02 22:14:36.000000",
     current_ts="2015-09-18T13:39:35.447000",
-    pos="00000000000000001444",
+    pos="00000000000010001444",
     tokens={},
     after={},
     before={},
@@ -39,8 +39,8 @@ output_path = (
     + config_dict["target_json"]
     + "/"
     + config_dict["schema"]
-    + "/"
-    + config_dict["table"]
+    # + "/"
+    # + config_dict["table"]
 )
 
 glueContext = GlueContext(SparkContext.getOrCreate())
@@ -65,11 +65,13 @@ json_list_d = []
 
 for rec in inputs:
     rec_count = rec_count + 1
+    if rec_count > 20:
+        break
     pos_time_delta = pos_seed + random.randint(1, 10000)
     recdict = rec.asDict()
-    new_timestamp = datetime.datetime.strptime(recdict["CREATE_DATE"][:19], "%Y-%m-%dT%H:%M:%S") + datetime.timedelta(
-        seconds=pos_time_delta
-    )
+    new_timestamp = datetime.datetime.strptime(
+        recdict["CREATE_DATETIME"][:19], "%Y-%m-%dT%H:%M:%S"
+    ) + datetime.timedelta(seconds=pos_time_delta)
     new_timestamp = datetime.datetime.now() - datetime.timedelta(seconds=pos_time_delta)
 
     recdict["AUDIT_TIMESTAMP"] = str(new_timestamp) + ".500000"
@@ -77,8 +79,8 @@ for rec in inputs:
     recdict["CREATE_DATETIME"] = str(new_timestamp) + ".000000"
     # recdict["MODIFIED_DATETIME"] = None
     recdict["MODIFY_DATETIME"] = None
-    recdict["BIRTH_DATE"] = recdict["BIRTH_DATE"][:10]
-    recdict["CREATE_DATE"] = str(new_timestamp)[:10]
+    recdict["BOOKING_BEGIN_DATE"] = recdict["BOOKING_BEGIN_DATE"][:10]
+    recdict["BOOKING_CREATED_DATE"] = str(new_timestamp)[:10]
     # recdict["CREATE_DATE"] = recdict["CREATE_DATE"][:10]
     # inserts
     global_dict["op_type"] = "I"
@@ -92,13 +94,13 @@ for rec in inputs:
     global_dict.pop("before")
     global_dict.pop("after")
     global_dict["after"] = recdict
-    if rec_count < 20:
+    if rec_count < 6:
         json_list_b.append(json.dumps(global_dict))
     else:
         json_list_i.append(json.dumps(global_dict))
     # updates
 
-    if rec_count > 15:
+    if rec_count > 4 and rec_count < 15:
 
         pos_time_delta = pos_time_delta + random.randint(1, 100000)
         global_dict["before"] = recdict.copy()
@@ -116,20 +118,22 @@ for rec in inputs:
         # global_dict["after"]["MODIFIED_DATETIME"] = str(new_timestamp) + ".000000"
         global_dict["after"]["MODIFY_DATETIME"] = str(new_timestamp) + ".000000"
         global_dict["after"]["MODIFY_USER_ID"] = "FRAZERCLAYTON"
-        if global_dict["after"]["SEX_CODE"] == "male":
-            global_dict["after"]["TITLE"] = "Mr"
-        if global_dict["after"]["SEX_CODE"] == "female":
-            global_dict["after"]["TITLE"] = "Mrs"
-            if global_dict["after"]["AGE"] < 40:
-                global_dict["after"]["TITLE"] = "Miss"
-            if global_dict["after"]["AGE"] > 70:
-                global_dict["after"]["TITLE"] = "Ms"
+        # if global_dict["after"]["SEX_CODE"] == "male":
+        #     global_dict["after"]["TITLE"] = "Mr"
+        # if global_dict["after"]["SEX_CODE"] == "female":
+        #     global_dict["after"]["TITLE"] = "Mrs"
+        #     if global_dict["after"]["AGE"] < 40:
+        #         global_dict["after"]["TITLE"] = "Miss"
+        #     if global_dict["after"]["AGE"] > 70:
+        #         global_dict["after"]["TITLE"] = "Ms"
+        global_dict["after"]["IN_OUT_STATUS"] = "OUT"
+        global_dict["after"]["BOOKING_END_DATE"] = global_dict["after"]["MODIFY_DATETIME"][:10]
         # global_dict["after"]["BIRTH_DATE"] = global_dict["after"]["BIRTH_DATE"][:10]
         # global_dict["after"]["CREATE_DATE"] = global_dict["after"]["CREATE_DATE"][:10]
         json_list_u.append(json.dumps(global_dict))
 
     # deletes
-    if rec_count > 10 and rec_count < 20:
+    if rec_count < 3:
         pos_time_delta = pos_time_delta + random.randint(1, 100000)
         new_timestamp = new_timestamp + datetime.timedelta(seconds=pos_time_delta)
         recdict_before = recdict.copy()
@@ -185,20 +189,27 @@ glueContext.write_dynamic_frame.from_options(
 glueContext.write_dynamic_frame.from_options(
     frame=out_dyf,
     connection_type="s3",
-    connection_options={"path": "s3://{}/inserts/".format(output_path)},
+    connection_options={"path": "s3://{}/events/".format(output_path)},
     format="json",
 )
 
 glueContext.write_dynamic_frame.from_options(
     frame=out_dyf_u,
     connection_type="s3",
-    connection_options={"path": "s3://{}/updates/".format(output_path)},
+    connection_options={"path": "s3://{}/events/".format(output_path)},
     format="json",
 )
 
 glueContext.write_dynamic_frame.from_options(
     frame=out_dyf_d,
     connection_type="s3",
-    connection_options={"path": "s3://{}/deletes/".format(output_path)},
+    connection_options={"path": "s3://{}/events/".format(output_path)},
     format="json",
 )
+
+
+print("records", rec_count)
+print("BASE", out_dyf_b.count())
+print("INSERTS", out_dyf.count())
+print("updates", out_dyf_u.count())
+print("deletes", out_dyf_d.count())

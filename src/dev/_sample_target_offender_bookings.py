@@ -62,23 +62,28 @@ def __type_for(datatype):
 
 
 ddl = (
-    "OFFENDER_ID number,OFFENDER_NAME_SEQ number,ID_SOURCE_CODE varchar2(48),LAST_NAME varchar2(140),NAME_TYPE "
-    "varchar2(48),FIRST_NAME varchar2(140),MIDDLE_NAME varchar2(140),BIRTH_DATE date,SEX_CODE varchar2(48),"
-    "SUFFIX varchar2(48),LAST_NAME_SOUNDEX varchar2(24),BIRTH_PLACE varchar2(100),BIRTH_COUNTRY_CODE varchar2(48),"
-    "CREATE_DATE date,LAST_NAME_KEY varchar2(140),ALIAS_OFFENDER_ID number,FIRST_NAME_KEY varchar2(140),"
-    "MIDDLE_NAME_KEY varchar2(140),OFFENDER_ID_DISPLAY varchar2(40),ROOT_OFFENDER_ID number,CASELOAD_TYPE varchar2("
-    "48),MODIFY_USER_ID varchar2(128),MODIFY_DATETIME timestamp(9),ALIAS_NAME_TYPE varchar2(48),PARENT_OFFENDER_ID "
-    "number,UNIQUE_OBLIGATION_FLAG varchar2(4),SUSPENDED_FLAG varchar2(4),SUSPENDED_DATE date,RACE_CODE varchar2("
-    "48),REMARK_CODE varchar2(48),ADD_INFO_CODE varchar2(48),BIRTH_COUNTY varchar2(80),BIRTH_STATE varchar2(80),"
-    "MIDDLE_NAME_2 varchar2(140),TITLE varchar2(48),AGE number,CREATE_USER_ID varchar2(160),LAST_NAME_ALPHA_KEY "
-    "varchar2(4),CREATE_DATETIME timestamp(9),NAME_SEQUENCE varchar2(48),AUDIT_TIMESTAMP timestamp(9),AUDIT_USER_ID "
-    "varchar2(128),AUDIT_MODULE_NAME varchar2(260),AUDIT_CLIENT_USER_ID varchar2(256),AUDIT_CLIENT_IP_ADDRESS "
-    "varchar2(156),AUDIT_CLIENT_WORKSTATION_NAME varchar2(256),AUDIT_ADDITIONAL_INFO varchar2(1024)"
+    "OFFENDER_BOOK_ID NUMBER,BOOKING_BEGIN_DATE DATE,BOOKING_END_DATE DATE,BOOKING_NO VARCHAR2(56),OFFENDER_ID "
+    "NUMBER,AGY_LOC_ID VARCHAR2(24),LIVING_UNIT_ID NUMBER,DISCLOSURE_FLAG VARCHAR2(4),IN_OUT_STATUS VARCHAR2(48),"
+    "ACTIVE_FLAG VARCHAR2(4),BOOKING_STATUS VARCHAR2(48),YOUTH_ADULT_CODE VARCHAR2(48),FINGER_PRINTED_STAFF_ID "
+    "NUMBER,SEARCH_STAFF_ID NUMBER,PHOTO_TAKING_STAFF_ID NUMBER,ASSIGNED_STAFF_ID NUMBER,CREATE_AGY_LOC_ID "
+    "VARCHAR2(24),BOOKING_TYPE VARCHAR2(48),BOOKING_CREATED_DATE DATE,ROOT_OFFENDER_ID NUMBER,AGENCY_IML_ID NUMBER,"
+    "SERVICE_FEE_FLAG VARCHAR2(4),EARNED_CREDIT_LEVEL VARCHAR2(48),EKSTRAND_CREDIT_LEVEL VARCHAR2(48),"
+    "INTAKE_AGY_LOC_ID VARCHAR2(24),ACTIVITY_DATE DATE,INTAKE_CASELOAD_ID VARCHAR2(24),INTAKE_USER_ID VARCHAR2("
+    "128),CASE_OFFICER_ID NUMBER,CASE_DATE DATE,CASE_TIME DATE,COMMUNITY_ACTIVE_FLAG VARCHAR2(4),"
+    "CREATE_INTAKE_AGY_LOC_ID VARCHAR2(24),COMM_STAFF_ID NUMBER,COMM_STATUS VARCHAR2(48),COMMUNITY_AGY_LOC_ID "
+    "VARCHAR2(24),NO_COMM_AGY_LOC_ID NUMBER,COMM_STAFF_ROLE VARCHAR2(48),AGY_LOC_ID_LIST VARCHAR2(320),"
+    "STATUS_REASON VARCHAR2(128),TOTAL_UNEXCUSED_ABSENCES NUMBER,REQUEST_NAME VARCHAR2(960),CREATE_DATETIME "
+    "TIMESTAMP (9),CREATE_USER_ID VARCHAR2(128),MODIFY_DATETIME TIMESTAMP (9),MODIFY_USER_ID VARCHAR2(128),"
+    "RECORD_USER_ID VARCHAR2(120),INTAKE_AGY_LOC_ASSIGN_DATE DATE,AUDIT_TIMESTAMP TIMESTAMP (9),AUDIT_USER_ID "
+    "VARCHAR2(128),AUDIT_MODULE_NAME VARCHAR2(260),AUDIT_CLIENT_USER_ID VARCHAR2(256),AUDIT_CLIENT_IP_ADDRESS "
+    "VARCHAR2(156),AUDIT_CLIENT_WORKSTATION_NAME VARCHAR2(256),AUDIT_ADDITIONAL_INFO VARCHAR2(1024),BOOKING_SEQ "
+    "NUMBER,ADMISSION_REASON VARCHAR2(48)"
 )
 
 
 def get_schema(with_event_type=False):
-    field_list = ddl.split(",")
+
+    field_list = ddl.replace("TIMESTAMP (9)", "TIMESTAMP(9)").split(",")
     struct_list = []
 
     for field in field_list:
@@ -98,7 +103,7 @@ def get_schema(with_event_type=False):
 
 
 def get_primary_key():
-    return "offender_id"
+    return "offender_book_id"
 
 
 # configuration
@@ -110,7 +115,7 @@ config_dict = dict(
     target_parquet="data/dummy/kinesis/transac/parquet/",
     target_final="data/dummy/database",
     schema="oms_owner",
-    table="offenders_orig",
+    table="offender_bookings",
     # partition_by = ["date", "time"]
     partition_by=["create_date"],
 )
@@ -262,7 +267,7 @@ def format_field(schema, fldname, fld_val):
     if fld_val is not None:
         if fldtype == DateType():
             # print("datetype", fldname, fld_val)
-            new_val = datetime.datetime.strptime(fld_val, "%Y-%m-%d")
+            new_val = datetime.datetime.strptime(fld_val[:10], "%Y-%m-%d")
         if fldtype == TimestampType():
             # print("timestamptype", fldname, fld_val)
             new_val = datetime.datetime.strptime(fld_val[:26], "%Y-%m-%d %H:%M:%S.%f")
@@ -314,13 +319,14 @@ def show_table(table_df):
     print("example")
     table_df.select(
         col("offender_id"),
-        col("title"),
-        col("create_date"),
+        col("in_out_status"),
+        col("booking_created_date"),
         col("admin_hash"),
         col("admin_gg_pos"),
         col("admin_event_ts"),
         # col("__action"),
-    ).filter((col("offender_id").isin({1061, 873, 150, 127, 128, 129}))).show(10)
+    ).show(20)
+    # .filter((col("offender_id").isin({1061, 873, 150, 127, 128, 129})))
 
     print("##########################################")
 
@@ -341,7 +347,6 @@ def start():
 
     df = read_s3_to_df(gluecontext=glueContext, config=config_dict, key_suffix="base")
     df = add_hash_drop_tokens(frame=df, hash_fields=["after"])
-
     temp_rdd = df.rdd.map(lambda row: mapper(row_in=row, schema=target_schema))
 
     local_df_out = temp_rdd.toDF(schema=target_schema)

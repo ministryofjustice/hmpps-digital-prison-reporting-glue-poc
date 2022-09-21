@@ -116,8 +116,11 @@ def update_schema(schema, with_event_type=False, prefix=False):
     return StructType(struct_list)
 
 
-def get_primary_key():
-    return "offender_id"
+def get_primary_key(table):
+    if table == "offenders":
+        return "offender_id"
+    if table == "offender_bookings":
+        return "offender_book_id"
 
 
 temp_dataframe = None
@@ -343,7 +346,7 @@ def compare_dicts(dict_orig, row_in, key_field):
     :param key_field: record key
     :return: updated original dict
     """
-    if row_in["previous_hash"] == dict_orig["admin_hash"]:
+    if 1 == 1:  # row_in["previous_hash"] == dict_orig["admin_hash"]:
         if row_in["event_type"] == "U":
             for key in dict_orig:
                 if key == "__action":
@@ -354,12 +357,11 @@ def compare_dicts(dict_orig, row_in, key_field):
         if row_in["event_type"] == "D":
             dict_orig["__action"] = "D"
         if row_in["event_type"] == "I":
-            if dict_orig["__action"] == "D":
-                for key in dict_orig:
-                    if key == "__action":
-                        dict_orig[key] = "U"
-                    else:
-                        dict_orig[key] = row_in[key]
+            for key in dict_orig:
+                if key == "__action":
+                    dict_orig[key] = "I"
+                else:
+                    dict_orig[key] = row_in[key]
 
     return dict_orig
 
@@ -482,8 +484,6 @@ def start():
 
     """0. Read In event log and get tables to be considers"""
 
-    target_key = get_primary_key()
-
     df_event_log_in = read_table_to_df(
         gluecontext=glueContext, database=DATABASE_NAME, table_name=GG_TRANSAC_EVENTS_TABLE
     )
@@ -497,6 +497,7 @@ def start():
 
         """1. Read in target table and extract schema"""
         target_table = format_table_name(target_table_name)
+        target_key = get_primary_key(table=target_table)
         target_table_orig = target_table + "_orig"
         print(target_table)
         df_table_in = read_delta_table(database=DATABASE_NAME, table_name=target_table_orig)
