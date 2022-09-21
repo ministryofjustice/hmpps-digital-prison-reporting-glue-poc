@@ -22,6 +22,7 @@
 - [ ] add tx message on table change (kenesis)
 - [ ] acquire s3 bucket/key from glue catalog
 - [ ] perhaps combine into single python script
+- [ ] Add Kinesis TX event
 
 ## Details
 
