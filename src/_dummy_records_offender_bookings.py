@@ -67,9 +67,9 @@ for rec in inputs:
     rec_count = rec_count + 1
     pos_time_delta = pos_seed + random.randint(1, 10000)
     recdict = rec.asDict()
-    new_timestamp = datetime.datetime.strptime(recdict["CREATE_DATETIME"][:19], "%Y-%m-%dT%H:%M:%S") + datetime.timedelta(
-        seconds=pos_time_delta
-    )
+    new_timestamp = datetime.datetime.strptime(
+        recdict["CREATE_DATETIME"][:19], "%Y-%m-%dT%H:%M:%S"
+    ) + datetime.timedelta(seconds=pos_time_delta)
     new_timestamp = datetime.datetime.now() - datetime.timedelta(seconds=pos_time_delta)
 
     recdict["AUDIT_TIMESTAMP"] = str(new_timestamp) + ".500000"

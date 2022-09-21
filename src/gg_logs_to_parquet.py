@@ -1,5 +1,6 @@
 from pyspark.sql.functions import *
 from pyspark.sql.types import DateType, TimestampType
+import boto3
 
 """
 merge goldengate events log to parquet 
@@ -28,90 +29,50 @@ merge goldengate events log to parquet
 """
 __author__ = "frazer.clayton@digital.justice.gov.uk"
 
-BUCKET_SUFFIX = "20220916083016121000000001"
+DATABASE_NAME = "dpr-glue-catalog-development-development"
+GG_TRANSAC_EVENTS_TABLE_IN = "goldengate_transac_raw_json_logs"
+GG_TRANSAC_EVENTS_TABLE_OUT = "goldengate_transac_parquet_logs"
+PARTITION_BY = ["part_date"]
+
+
+# configuration
+
 # use glue catalog True/False
 USE_CATALOG = False
 
-# configuration
-config_dict = dict(
-    source_bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
-    target_bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
-    target_json="data/dummy/kinesis/transac/json/",
-    target_parquet="data/dummy/kinesis/transac/parquet/",
-    schema="oms_owner",
-    table="all",
-    partition_by=["part_date"],
-)
+
+def get_table_location(database, table_name):
+    boto_glue = boto3.client("glue")
+    table_def = boto_glue.get_table(DatabaseName=database, Name=table_name)
+    return table_def["Table"]["StorageDescriptor"]["Location"]
 
 
-def update_config():
-    """
-    Update configuration with elements describing paths to data
-    :return: None
-    """
-
-    config_dict["read_path"] = (
-            config_dict["source_bucket"]
-            + "/"
-            + config_dict["target_json"]
-            + "/"
-            + config_dict["schema"]
-            + "/"
-            + config_dict["table"]
+def read_catalog(gluecontext, database, tablename):
+    input_dydf = gluecontext.create_data_frame.from_catalog(
+        database=database, table_name=tablename, transformation_ctx="df"
     )
-
-    config_dict["write_path"] = (
-            config_dict["target_bucket"]
-            + "/"
-            + config_dict["target_parquet"]
-            + "/"
-            + config_dict["schema"]
-            + "/"
-            + config_dict["table"]
-    )
+    return input_dydf.toDF()
 
 
-def write_catalog(gluecontext, config, frame):
+def read_table(gluecontext, database, tablename, format="parquet"):
     """
-    write output using glue catalog
+    Read from S3 into Dataframe
     :param gluecontext: Glue context
     :param config: configuration dictionary
-    :param frame: Glue Dynamic Frame
-    :return:None
+    :param key_suffix: suffix to be added to path
+    :return: spark dataframe
     """
-    additionaloptions = {"enableUpdateCatalog": True, "partitionKeys": config_dict["partition_by"]}
+    read_path = get_table_location(database, tablename)
 
-    gluecontext.write_dynamic_frame_from_catalog(
-        frame=frame,
-        database=config["schema"],
-        table_name=config["table"],
+    input_dydf = gluecontext.create_dynamic_frame_from_options(
         connection_type="s3",
-        connection_options={"path": "s3://{}/".format(config["write_path"])},
-        additional_options=additionaloptions,
-        format="parquet",
+        connection_options={"paths": [read_path]},
+        format=format,
     )
+    return input_dydf.toDF()
 
 
-def write_s3(gluecontext, config, frame):
-    """
-    write output to S3
-    :param gluecontext: Glue context
-    :param config: configuration dictionary
-    :param frame: Glue Dynamic Frame
-    :return:None
-    """
-    gluecontext.write_dynamic_frame.from_options(
-        frame=frame,
-        connection_type="s3",
-        connection_options={
-            "path": "s3://{}/".format(config["write_path"]),
-            "partitionKeys": config_dict["partition_by"],
-        },
-        format="parquet",
-    )
-
-
-def write_frame(gluecontext, config, frame):
+def read_frame(gluecontext, database, tablename, format="parquet"):
     """
     wrapper for write mechanism determined by USE_CATALOG
     :param gluecontext: Glue context
@@ -120,25 +81,64 @@ def write_frame(gluecontext, config, frame):
     :return:None
     """
     if USE_CATALOG:
-        write_catalog(gluecontext=gluecontext, config=config, frame=frame)
+        ret_df = read_catalog(gluecontext=gluecontext, database=database, tablename=tablename, format=format)
     else:
-        write_s3(gluecontext=gluecontext, config=config, frame=frame)
+        ret_df = read_table(gluecontext=gluecontext, database=database, tablename=tablename, format=format)
+
+    return ret_df
 
 
-def read_s3_to_df(gluecontext, config, ):
+def write_catalog(gluecontext, database, tablename, frame, format="parquet"):
     """
-    Read from S3 into Dataframe
+    write output using glue catalog
     :param gluecontext: Glue context
     :param config: configuration dictionary
-    :param key_suffix: suffix to be added to path
-    :return: spark dataframe
+    :param frame: Glue Dynamic Frame
+    :return:None
     """
-    input_dydf = gluecontext.create_dynamic_frame_from_options(
-        connection_type="s3",
-        connection_options={"paths": ["s3://{}/".format(config["read_path"])]},
-        format="json",
+    additionaloptions = {"enableUpdateCatalog": True, "partitionKeys": PARTITION_BY}
+
+    gluecontext.write_dynamic_frame_from_catalog(
+        frame=frame,
+        database=database,
+        table_name=tablename,
+        additional_options=additionaloptions,
+        format=format,
     )
-    return input_dydf.toDF()
+
+
+def write_table(gluecontext, database, tablename, frame, format="parquet"):
+    """
+    write output to S3
+    :param gluecontext: Glue context
+    :param config: configuration dictionary
+    :param frame: Glue Dynamic Frame
+    :return:None
+    """
+    write_path = get_table_location(database, tablename)
+    gluecontext.write_dynamic_frame.from_options(
+        frame=frame,
+        connection_type="s3",
+        connection_options={
+            "path": write_path,
+            "partitionKeys": PARTITION_BY,
+        },
+        format=format,
+    )
+
+
+def write_frame(gluecontext, database, tablename, frame, format="parquet"):
+    """
+    wrapper for write mechanism determined by USE_CATALOG
+    :param gluecontext: Glue context
+    :param config: configuration dictionary
+    :param frame: Glue Dynamic Frame
+    :return:None
+    """
+    if USE_CATALOG:
+        write_catalog(gluecontext=gluecontext, database=database, tablename=tablename, frame=frame, format=format)
+    else:
+        write_table(gluecontext=gluecontext, database=database, tablename=tablename, frame=frame, format=format)
 
 
 def add_hash_drop_tokens(frame, hash_fields):
@@ -155,7 +155,7 @@ def add_hash_drop_tokens(frame, hash_fields):
     return new_frame
 
 
-def add_partitions_from_op_ts(config, frame):
+def add_partitions_from_op_ts(partition_by, frame):
     """
     Add partition fields to dataframe
     :param config: configuration dictionary
@@ -164,7 +164,7 @@ def add_partitions_from_op_ts(config, frame):
     """
     op_ts_def = [1, 19]
     new_frame = frame
-    for part in config["partition_by"]:
+    for part in partition_by:
         if part == "part_date":
             new_frame = new_frame.withColumn(
                 "part_date", substring(col("op_ts"), op_ts_def[0], op_ts_def[1]).cast(DateType())
@@ -181,7 +181,7 @@ def add_partitions_from_op_ts(config, frame):
 def show_frame(frame):
     frame.select(
         col("table"),
-        col(config_dict["partition_by"][0]),
+        col(PARTITION_BY[0]),
         col("op_type"),
         col("pos"),
         col("before.offender_id"),
@@ -216,28 +216,30 @@ def start():
 
     glueContext = GlueContext(SparkContext.getOrCreate())
 
-    update_config()
     """        
     1. Read in event log as json
     2. add hash field for record contents (before and or after where relevant) and drop tokens
 
     """
 
-    local_df_u = read_s3_to_df(gluecontext=glueContext, config=config_dict, )
+    local_df_u = read_frame(
+        gluecontext=glueContext, database=DATABASE_NAME, tablename=GG_TRANSAC_EVENTS_TABLE_IN, format="json"
+    )
+
     local_df_out = add_hash_drop_tokens(frame=local_df_u, hash_fields=["after", "before"])
 
     """3. Union together"""
 
     """4. Add Partition field(s)"""
 
-    local_df_out = add_partitions_from_op_ts(config=config_dict, frame=local_df_out)
+    local_df_out = add_partitions_from_op_ts(partition_by=PARTITION_BY, frame=local_df_out)
 
     show_frame(local_df_out)
 
     """5. write to target"""
     out_dyf = DynamicFrame.fromDF(local_df_out, glueContext, "out_dyf")
 
-    write_frame(gluecontext=glueContext, config=config_dict, frame=out_dyf)
+    write_frame(gluecontext=glueContext, database=DATABASE_NAME, tablename=GG_TRANSAC_EVENTS_TABLE_OUT, frame=out_dyf)
 
 
 if __name__ == "__main__":

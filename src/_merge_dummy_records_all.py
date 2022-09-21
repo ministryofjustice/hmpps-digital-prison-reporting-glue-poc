@@ -55,23 +55,23 @@ def update_config(tablename=None):
         t_tablename = tablename
 
     config_dict["read_path"] = (
-            config_dict["source_bucket"]
-            + "/"
-            + config_dict["target_json"]
-            + "/"
-            + config_dict["schema"]
-            + "/"
-            + t_tablename
+        config_dict["source_bucket"]
+        + "/"
+        + config_dict["target_json"]
+        + "/"
+        + config_dict["schema"]
+        + "/"
+        + t_tablename
     )
 
     config_dict["write_path"] = (
-            config_dict["target_bucket"]
-            + "/"
-            + config_dict["target_parquet"]
-            + "/"
-            + config_dict["schema"]
-            + "/"
-            + config_dict["table"]
+        config_dict["target_bucket"]
+        + "/"
+        + config_dict["target_parquet"]
+        + "/"
+        + config_dict["schema"]
+        + "/"
+        + config_dict["table"]
     )
 
 
@@ -224,10 +224,10 @@ def start():
 
     df_list = []
     for t_table in table_list:
-        """        
+        """
         1. Read in event log as json
         2. add hash field for record contents (before and or after where relevant) and drop tokens
-    
+
         """
         local_df_i = read_s3_to_df(gluecontext=glueContext, config=config_dict, key_suffix="inserts")
         # local_df_i = add_hash_drop_tokens(frame=local_df_i, hash_fields=["after"])

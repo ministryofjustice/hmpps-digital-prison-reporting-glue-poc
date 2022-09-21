@@ -83,8 +83,7 @@ ddl = (
 
 def get_schema(with_event_type=False):
 
-
-    field_list = ddl.replace("TIMESTAMP (9)","TIMESTAMP(9)").split(",")
+    field_list = ddl.replace("TIMESTAMP (9)", "TIMESTAMP(9)").split(",")
     struct_list = []
 
     for field in field_list:
@@ -296,7 +295,7 @@ def mapper(row_in, schema):
     new_row_dict["admin_gg_pos"] = row_in["pos"]
     new_row_dict["admin_gg_op_ts"] = format_field(schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
     new_row_dict["admin_event_ts"] = datetime.datetime.now()
-    #print(new_row_dict)
+    # print(new_row_dict)
     return Row(**new_row_dict)
 
 
@@ -327,7 +326,7 @@ def show_table(table_df):
         col("admin_event_ts"),
         # col("__action"),
     ).show(10)
-    #.filter((col("offender_id").isin({1061, 873, 150, 127, 128, 129})))
+    # .filter((col("offender_id").isin({1061, 873, 150, 127, 128, 129})))
 
     print("##########################################")
 
@@ -356,6 +355,7 @@ def start():
     # write_frame(gluecontext=glueContext, config=config_dict, frame=out_dyf)
     write_delta(config=config_dict, frame=local_df_out)
     show_table(local_df_out)
+
 
 if __name__ == "__main__":
     from pyspark.shell import spark

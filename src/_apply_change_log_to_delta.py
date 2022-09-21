@@ -1,5 +1,5 @@
 import boto3
-
+from delta import DeltaTable
 from pyspark.sql.functions import *
 from pyspark.sql.types import DateType, TimestampType, Row
 from pyspark.sql import Window
@@ -56,9 +56,7 @@ apply goldengate events log to target
 """
 __author__ = "frazer.clayton@digital.justice.gov.uk"
 
-DATABASE_NAME = "dpr-glue-catalog-development-development"
-GG_TRANSAC_EVENTS_TABLE = "goldengate_transac_parquet_logs"
-
+BUCKET_SUFFIX = "20220916083016121000000001"
 # use glue catalog True/False
 USE_CATALOG = False
 
@@ -101,10 +99,6 @@ def get_table_location(database, table_name):
     return table_def["Table"]["StorageDescriptor"]["Location"]
 
 
-def format_table_name(table_name):
-    return table_name.split(".")[1].lower()
-
-
 def update_schema(schema, with_event_type=False, prefix=False):
     struct_list = schema.fields
     if with_event_type:
@@ -121,6 +115,69 @@ def get_primary_key():
 
 
 temp_dataframe = None
+# configuration
+config_gg_events = dict(
+    bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
+    key="data/dummy/kinesis/transac/parquet",
+    schema="oms_owner",
+    table="all",
+)
+config_source_table = dict(
+    bucket="dpr-demo-development-{}".format(BUCKET_SUFFIX),
+    key="data/dummy/database",
+    schema="oms_owner",
+    table="offenders",
+    # partition_by = ["date", "time"]
+    partition_by=["part_date"],
+)
+config_target_table = dict(
+    bucket="dpr-structured-development-20220916083016132200000004",
+    key="data/dummy/database",
+    schema="oms_owner",
+    table="offenders",
+    # partition_by = ["date", "time"]
+    partition_by=["part_date"],
+)
+
+
+def update_config(target_table=None):
+    """
+    Update configuration with elements describing paths to data
+    :return: None
+    """
+    _target_table = config_target_table["table"]
+    if target_table is not None:
+        _target_table = target_table
+
+    config_gg_events["path"] = (
+        config_gg_events["bucket"]
+        + "/"
+        + config_gg_events["key"]
+        + "/"
+        + config_gg_events["schema"]
+        + "/"
+        + config_gg_events["table"]
+    )
+
+    config_source_table["path"] = (
+        config_source_table["bucket"]
+        + "/"
+        + config_source_table["key"]
+        + "/"
+        + config_source_table["schema"]
+        + "/"
+        + _target_table
+    )
+
+    config_target_table["path"] = (
+        config_target_table["bucket"]
+        + "/"
+        + config_target_table["key"]
+        + "/delta/"
+        + config_target_table["schema"]
+        + "/"
+        + _target_table
+    )
 
 
 def get_target_table_name(gg_table_name):
@@ -171,6 +228,25 @@ def write_s3(gluecontext, config, frame):
     )
 
 
+def write_delta(config, frame):
+    # Write data as DELTA TABLE
+    frame.write.format("delta").mode("overwrite").save("s3://{}/".format(config["path"]))
+
+    # Generate MANIFEST file for Athena/Catalog
+    # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path"]))
+    # deltaTable.generate("symlink_format_manifest")
+
+
+def read_delta(config):
+    # Write data as DELTA TABLE
+    frame = spark.read.format("delta").load("s3://{}/".format(config["path"]))
+    return frame
+
+    # Generate MANIFEST file for Athena/Catalog
+    # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path_delta"]))
+    # deltaTable.generate("symlink_format_manifest")
+
+
 def read_table_to_df(gluecontext, database, table_name, file_format="parquet"):
     """
     Read from S3 into Dataframe
@@ -209,10 +285,23 @@ def write_delta_table(database, table_name, frame):
     # deltaTable.generate("symlink_format_manifest")
 
 
+def write_frame(gluecontext, config, frame):
+    """
+    wrapper for write mechanism determined by USE_CATALOG
+    :param gluecontext: Glue context
+    :param config: configuration dictionary
+    :param frame: Glue Dynamic Frame
+    :return:None
+    """
+    if USE_CATALOG:
+        write_catalog(gluecontext=gluecontext, config=config, frame=frame)
+    else:
+        write_s3(gluecontext=gluecontext, config=config, frame=frame)
+
+
 def read_s3_to_df(gluecontext, config, key_suffix=None, file_format="parquet"):
     """
     Read from S3 into Dataframe
-    :param file_format: file format
     :param gluecontext: Glue context
     :param config: configuration dictionary
     :param key_suffix: suffix to be added to path
@@ -480,26 +569,27 @@ def start():
 
     glueContext = GlueContext(SparkContext.getOrCreate())
 
+    update_config()
+
     """0. Read In event log and get tables to be considers"""
 
     target_key = get_primary_key()
 
-    df_event_log_in = read_table_to_df(
-        gluecontext=glueContext, database=DATABASE_NAME, table_name=GG_TRANSAC_EVENTS_TABLE
-    )
+    df_event_log_in = read_s3_to_df(gluecontext=glueContext, config=config_gg_events)
 
     table_list = get_distinct_column_values_from_df(frame=df_event_log_in, column="table")
 
     for target_table_name in table_list:
         print(target_table_name)
 
+        """1. Read in target table and extract schema"""
         df_event_log = df_event_log_in.filter(col("table") == target_table_name)
 
-        """1. Read in target table and extract schema"""
-        target_table = format_table_name(target_table_name)
-        target_table_orig = target_table + "_orig"
-        print(target_table)
-        df_table_in = read_delta_table(database=DATABASE_NAME, table_name=target_table_orig)
+        update_config(target_table=get_target_table_name(target_table_name))
+
+        print(config_source_table)
+
+        df_table_in = read_delta(config=config_source_table)
 
         temp_schema = update_schema(schema=df_table_in.schema, with_event_type=True)
 
@@ -578,7 +668,7 @@ def start():
         # df_table_out = df_table_out.withColumn(config_target_table["partition_by"][0], col("create_date"))
 
         """10. Write to target"""
-        write_delta_table(database=DATABASE_NAME, table_name=target_table, frame=df_table_out)
+        write_delta(config=config_target_table, frame=df_table_out)
 
         # show_table(df_table_in)
         # show_events(df_event_log)

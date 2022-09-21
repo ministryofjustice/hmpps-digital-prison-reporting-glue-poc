@@ -110,7 +110,7 @@ config_dict = dict(
     target_parquet="data/dummy/kinesis/transac/parquet/",
     target_final="data/dummy/database",
     schema="oms_owner",
-    table="offenders",
+    table="offenders_orig",
     # partition_by = ["date", "time"]
     partition_by=["create_date"],
 )
