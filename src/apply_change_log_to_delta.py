@@ -472,6 +472,12 @@ def show_bef_after_applied(df_to_consider, df_applied):
     print("##########################################")
 
 
+def trigger_kinesis_event(table_list):
+    for table in table_list:
+        table = format_table_name(table_name=table)
+        print("Kinesis TX for {}".format(table))
+
+
 def start():
     """
     start the processing
@@ -584,6 +590,8 @@ def start():
         # show_table(df_table_in)
         # show_events(df_event_log)
         # show_table(df_table_out)
+
+    trigger_kinesis_event(table_list=table_list)
 
 
 if __name__ == "__main__":

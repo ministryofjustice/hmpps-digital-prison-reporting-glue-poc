@@ -39,6 +39,18 @@ apply_change_log_to_delta - applies changes in log to delta tables
 ```
 TBC
 ```
+
+#### Further Investigation
+
+```
+Reading of delta tables by reporting tools may be problematic
+Large number of small files not efficient
+Large number of generations in delta versions not efficient
+Ingestion of kenesis stream via dynamic frame hasnt been proven
+Glue catalogue does not support delta lake
+Latency due to rewriting entire versions of datasets in order to upsert and delete
+
+```
 #### Code Changes
 
 - Please keep all Code Commentary and Documentation up to date
