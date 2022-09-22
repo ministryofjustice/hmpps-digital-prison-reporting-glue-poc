@@ -161,7 +161,8 @@ def write_catalog(gluecontext, config, frame):
     :param frame: Glue Dynamic Frame
     :return:None
     """
-    additionaloptions = {"enableUpdateCatalog": True, "partitionKeys": config["partition_by"]}
+    additionaloptions = {"enableUpdateCatalog": True,
+                         "partitionKeys": config["partition_by"]}
 
     gluecontext.write_dynamic_frame_from_catalog(
         frame=frame,
@@ -222,7 +223,8 @@ def read_delta_table(database, table_name):
     :return: dataframe
     """
 
-    frame = spark.read.format("delta").load(get_table_location(database, table_name))
+    frame = spark.read.format("delta").load(
+        get_table_location(database, table_name))
     return frame
 
 
@@ -235,7 +237,8 @@ def write_delta_table(database, table_name, frame):
     :return: None
     """
     # Write data as DELTA TABLE
-    frame.write.format("delta").mode("overwrite").save(get_table_location(database, table_name))
+    frame.write.format("delta").mode("overwrite").save(
+        get_table_location(database, table_name))
 
     # Generate MANIFEST file for Athena/Catalog
     # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path"]))
@@ -319,7 +322,8 @@ def format_field(schema, fldname, fld_val):
             new_val = datetime.datetime.strptime(fld_val, "%Y-%m-%d")
         if fldtype == TimestampType():
             # print("timestamptype", fldname, fld_val)
-            new_val = datetime.datetime.strptime(fld_val[:26], "%Y-%m-%d %H:%M:%S.%f")
+            new_val = datetime.datetime.strptime(
+                fld_val[:26], "%Y-%m-%d %H:%M:%S.%f")
     return new_val
 
 
@@ -349,7 +353,8 @@ def mapper(row_in, schema):
 
     new_row_dict["previous_hash"] = row_in["before_hash"]
     new_row_dict["admin_gg_pos"] = row_in["pos"]
-    new_row_dict["admin_gg_op_ts"] = format_field(schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
+    new_row_dict["admin_gg_op_ts"] = format_field(
+        schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
     new_row_dict["admin_event_ts"] = datetime.datetime.now()
     new_row_dict["event_type"] = row_in["op_type"]
     new_row_dict["table"] = row_in["table"].split(".")[1]
@@ -539,41 +544,49 @@ def start():
         gluecontext=glueContext, database=DATABASE_NAME, table_name=GG_TRANSAC_EVENTS_TABLE
     )
 
-    table_list = get_distinct_column_values_from_df(frame=df_event_log_in, column="table")
+    table_list = get_distinct_column_values_from_df(
+        frame=df_event_log_in, column="table")
 
     """ loop thru target tables"""
     for target_table_name in table_list:
         print(target_table_name)
 
-        df_event_log = df_event_log_in.filter(col("table") == target_table_name)
+        df_event_log = df_event_log_in.filter(
+            col("table") == target_table_name)
 
         """1. Read in target table and extract schema"""
         target_table = format_table_name(target_table_name)
         target_key = get_primary_key(table=target_table)
         target_table_orig = target_table + "_orig"
         print(target_table)
-        df_table_in = read_delta_table(database=DATABASE_NAME, table_name=target_table_orig)
+        df_table_in = read_delta_table(
+            database=DATABASE_NAME, table_name=target_table_orig)
 
-        temp_schema = update_schema(schema=df_table_in.schema, with_event_type=True)
+        temp_schema = update_schema(
+            schema=df_table_in.schema, with_event_type=True)
 
         """2. map event log to target schema"""
 
-        df_event_log = df_event_log.rdd.map(lambda row: mapper(row_in=row, schema=temp_schema)).toDF(schema=temp_schema)
+        df_event_log = df_event_log.rdd.map(lambda row: mapper(
+            row_in=row, schema=temp_schema)).toDF(schema=temp_schema)
 
         """3. Get unique key list from event log"""
-        df_unique_key = rename_columns(frame=df_event_log.select(target_key).distinct())
+        df_unique_key = rename_columns(
+            frame=df_event_log.select(target_key).distinct())
 
         # consider events against existing records
 
         """4. Extract Records to be considered from target"""
         df_to_consider = df_table_in.join(
-            df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "inner"
+            df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(
+                target_key)], "inner"
         ).drop("__{}".format(target_key))
 
         """5. Remove Records to be considered from target"""
 
         df_to_remain = (
-            df_table_in.join(df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "left")
+            df_table_in.join(
+                df_unique_key, df_table_in[target_key] == df_unique_key["__{}".format(target_key)], "left")
             .filter(col("__{}".format(target_key)).isNull())
             .drop("__{}".format(target_key))
         )
@@ -584,7 +597,8 @@ def start():
         df_new_events_key = (
             df_unique_key.join(
                 df_unique_applied_key,
-                df_unique_applied_key[target_key] == df_unique_key["__{}".format(target_key)],
+                df_unique_applied_key[target_key] == df_unique_key["__{}".format(
+                    target_key)],
                 "left",
             )
             .filter(col(target_key).isNull())
@@ -598,10 +612,12 @@ def start():
         )
 
         # drop process only fields from primary events
-        df_primary_events = df_primary_events.drop("event_type").drop("previous_hash").drop("table").drop("schema")
+        df_primary_events = df_primary_events.drop("event_type").drop(
+            "previous_hash").drop("table").drop("schema")
 
         df_to_consider_2 = df_primary_events.join(
-            df_new_events_key, df_primary_events[target_key] == df_new_events_key["__{}".format(target_key)], "inner"
+            df_new_events_key, df_primary_events[target_key] == df_new_events_key["__{}".format(
+                target_key)], "inner"
         ).drop("__{}".format(target_key))
 
         """7. Union steps 4 and 6"""
@@ -617,7 +633,8 @@ def start():
         temp_dict_list = convert_to_dict_list(df_event_log)
 
         df_applied = df_to_consider.rdd.map(
-            lambda row: apply_events(row_in=row, key_field=target_key, event_dict=temp_dict_list)
+            lambda row: apply_events(
+                row_in=row, key_field=target_key, event_dict=temp_dict_list)
         ).toDF(schema=action_schema)
 
         # show_bef_after_applied(df_to_consider, df_applied)
@@ -625,13 +642,16 @@ def start():
         """9. Union applied events with unconsidered records (5 and 8)"""
         # only consider upsert records
 
-        df_applied = df_applied.filter(col("__action").isin({"U", "I"})).drop("__action")
-        df_table_out = df_applied.unionByName(df_to_remain, allowMissingColumns=True)
+        df_applied = df_applied.filter(
+            col("__action").isin({"U", "I"})).drop("__action")
+        df_table_out = df_applied.unionByName(
+            df_to_remain, allowMissingColumns=True)
 
         # df_table_out = df_table_out.withColumn(config_target_table["partition_by"][0], col("create_date"))
 
         """10. Write to target"""
-        write_delta_table(database=DATABASE_NAME, table_name=target_table, frame=df_table_out)
+        write_delta_table(database=DATABASE_NAME,
+                          table_name=target_table, frame=df_table_out)
 
         # show_table(df_table_in)
         # show_events(df_event_log)

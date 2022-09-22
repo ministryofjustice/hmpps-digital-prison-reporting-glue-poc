@@ -136,7 +136,8 @@ def write_catalog(gluecontext, config, frame):
     :param frame: Glue Dynamic Frame
     :return:None
     """
-    additionaloptions = {"enableUpdateCatalog": True, "partitionKeys": config["partition_by"]}
+    additionaloptions = {"enableUpdateCatalog": True,
+                         "partitionKeys": config["partition_by"]}
 
     gluecontext.write_dynamic_frame_from_catalog(
         frame=frame,
@@ -192,7 +193,8 @@ def read_table_to_df(gluecontext, database, table_name, file_format="parquet"):
 def read_delta_table(database, table_name):
     # Write data as DELTA TABLE
 
-    frame = spark.read.format("delta").load(get_table_location(database, table_name))
+    frame = spark.read.format("delta").load(
+        get_table_location(database, table_name))
     return frame
 
     # Generate MANIFEST file for Athena/Catalog
@@ -202,7 +204,8 @@ def read_delta_table(database, table_name):
 
 def write_delta_table(database, table_name, frame):
     # Write data as DELTA TABLE
-    frame.write.format("delta").mode("overwrite").save(get_table_location(database, table_name))
+    frame.write.format("delta").mode("overwrite").save(
+        get_table_location(database, table_name))
 
     # Generate MANIFEST file for Athena/Catalog
     # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path"]))
@@ -286,7 +289,8 @@ def format_field(schema, fldname, fld_val):
             new_val = datetime.datetime.strptime(fld_val, "%Y-%m-%d")
         if fldtype == TimestampType():
             # print("timestamptype", fldname, fld_val)
-            new_val = datetime.datetime.strptime(fld_val[:26], "%Y-%m-%d %H:%M:%S.%f")
+            new_val = datetime.datetime.strptime(
+                fld_val[:26], "%Y-%m-%d %H:%M:%S.%f")
     return new_val
 
 
@@ -316,7 +320,8 @@ def mapper(row_in, schema):
 
     new_row_dict["previous_hash"] = row_in["before_hash"]
     new_row_dict["admin_gg_pos"] = row_in["pos"]
-    new_row_dict["admin_gg_op_ts"] = format_field(schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
+    new_row_dict["admin_gg_op_ts"] = format_field(
+        schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
     new_row_dict["admin_event_ts"] = datetime.datetime.now()
     new_row_dict["event_type"] = row_in["op_type"]
     new_row_dict["table"] = row_in["table"].split(".")[1]
@@ -485,7 +490,8 @@ def start():
     target_table = "offender_booking"
     target_table_orig = target_table + "_orig"
     print(target_table)
-    df_table_in = read_delta_table(database=DATABASE_NAME, table_name=GG_TRANSAC_EVENTS_TABLE)
+    df_table_in = read_delta_table(
+        database=DATABASE_NAME, table_name=GG_TRANSAC_EVENTS_TABLE)
 
     df_table_in.select(
         col("offender_id"),

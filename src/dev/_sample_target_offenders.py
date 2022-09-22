@@ -1,3 +1,18 @@
+from pyspark.sql.types import (
+    StringType,
+    StructType,
+    LongType,
+    DoubleType,
+    FloatType,
+    IntegerType,
+    BooleanType,
+    BinaryType,
+    ArrayType,
+    MapType,
+    DateType,
+    TimestampType,
+    StructField,
+)
 from time import strptime
 
 # from pyspark.shell import spark
@@ -15,21 +30,6 @@ __author__ = "frazer.clayton@digital.justice.gov.uk"
 # use glue catalog True/False
 USE_CATALOG = False
 
-from pyspark.sql.types import (
-    StringType,
-    StructType,
-    LongType,
-    DoubleType,
-    FloatType,
-    IntegerType,
-    BooleanType,
-    BinaryType,
-    ArrayType,
-    MapType,
-    DateType,
-    TimestampType,
-    StructField,
-)
 
 possible_types = {
     1: lambda t: DoubleType(),
@@ -86,7 +86,8 @@ def get_schema(with_event_type=False):
         field_name = field_name.lower()
         field_type = field_type.split("(")[0].lower()
 
-        struct_list.append(StructField(field_name, __type_for(field_type), True))
+        struct_list.append(StructField(
+            field_name, __type_for(field_type), True))
 
     struct_list.append(StructField("admin_hash", StringType(), True))
     struct_list.append(StructField("admin_gg_pos", StringType(), True))
@@ -151,7 +152,8 @@ def write_catalog(gluecontext, config, frame):
     :param frame: Glue Dynamic Frame
     :return:None
     """
-    additionaloptions = {"enableUpdateCatalog": True, "partitionKeys": config_dict["partition_by"]}
+    additionaloptions = {"enableUpdateCatalog": True,
+                         "partitionKeys": config_dict["partition_by"]}
 
     gluecontext.write_dynamic_frame_from_catalog(
         frame=frame,
@@ -166,7 +168,8 @@ def write_catalog(gluecontext, config, frame):
 
 def write_delta(config, frame):
     # Write data as DELTA TABLE
-    frame.write.format("delta").mode("overwrite").save("s3://{}/".format(config["write_path"]))
+    frame.write.format("delta").mode("overwrite").save(
+        "s3://{}/".format(config["write_path"]))
 
     # Generate MANIFEST file for Athena/Catalog
     # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path_delta"]))
@@ -265,7 +268,8 @@ def format_field(schema, fldname, fld_val):
             new_val = datetime.datetime.strptime(fld_val, "%Y-%m-%d")
         if fldtype == TimestampType():
             # print("timestamptype", fldname, fld_val)
-            new_val = datetime.datetime.strptime(fld_val[:26], "%Y-%m-%d %H:%M:%S.%f")
+            new_val = datetime.datetime.strptime(
+                fld_val[:26], "%Y-%m-%d %H:%M:%S.%f")
     return new_val
 
 
@@ -288,7 +292,8 @@ def mapper(row_in, schema):
             )
     new_row_dict["admin_hash"] = row_in["after_hash"]
     new_row_dict["admin_gg_pos"] = row_in["pos"]
-    new_row_dict["admin_gg_op_ts"] = format_field(schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
+    new_row_dict["admin_gg_op_ts"] = format_field(
+        schema=schema, fldname="admin_gg_op_ts", fld_val=row_in["op_ts"])
     new_row_dict["admin_event_ts"] = datetime.datetime.now()
     # print(new_row_dict)
     return Row(**new_row_dict)
@@ -339,7 +344,8 @@ def start():
 
     target_schema = get_schema()
 
-    df = read_s3_to_df(gluecontext=glueContext, config=config_dict, key_suffix="base")
+    df = read_s3_to_df(gluecontext=glueContext,
+                       config=config_dict, key_suffix="base")
     df = add_hash_drop_tokens(frame=df, hash_fields=["after"])
 
     temp_rdd = df.rdd.map(lambda row: mapper(row_in=row, schema=target_schema))

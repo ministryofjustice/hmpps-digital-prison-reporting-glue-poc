@@ -9,7 +9,8 @@ def spark_session(request):
     :param request: pytest.FixtureRequest object
     """
     conf = (
-        SparkConf().setMaster("local").setAppName("pytest-pyspark-local-testing").set("spark.driver.host", "localhost")
+        SparkConf().setMaster("local").setAppName(
+            "pytest-pyspark-local-testing").set("spark.driver.host", "localhost")
     )
     sc = SparkContext(conf=conf)
 
