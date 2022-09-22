@@ -56,43 +56,55 @@ STRUCTURED_TABLES = ["offenders", "offender_bookings"]
 
 
 def get_table_location(database, table_name):
+    """
+    get table data location from glue catalogue
+    :param database: database name
+    :param table_name: table name
+    :return: full path to data
+    """
     boto_glue = boto3.client("glue")
     table_def = boto_glue.get_table(DatabaseName=database, Name=table_name)
     return table_def["Table"]["StorageDescriptor"]["Location"]
 
 
 def get_primary_key(table):
+    """
+    return primary key of dataset
+    :param table: table name
+    :return: primary key
+    """
     if table == "offenders":
         return "offender_id"
     if table == "offender_bookings":
         return "offender_book_id"
 
 
-temp_dataframe = None
-
-
 def read_delta_table(database, table_name):
-    # Write data as DELTA TABLE
+    """
+    Read in table as delta into dataframe
+    :param database: database_name
+    :param table_name: table_name
+    :return: dataframe
+    """
 
     frame = spark.read.format("delta").load(get_table_location(database, table_name))
     return frame
 
-    # Generate MANIFEST file for Athena/Catalog
-    # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path_delta"]))
-    # deltaTable.generate("symlink_format_manifest")
-
 
 def write_delta_table(database, table_name, frame):
+    """
+    write out dataframe as delta format table
+    :param database: database name
+    :param table_name: table name
+    :param frame: dataframe to write
+    :return: None
+    """
     # Write data as DELTA TABLE
     frame.write.format("delta").mode("overwrite").save(get_table_location(database, table_name))
 
     # Generate MANIFEST file for Athena/Catalog
     # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path"]))
     # deltaTable.generate("symlink_format_manifest")
-
-
-def create_empty_df(schema):
-    return spark.createDataFrame(data=spark.sparkContext.emptyRDD(), schema=schema)
 
 
 def load_sample_to_df(df, sample=0.01):
@@ -127,12 +139,21 @@ def show_table(table_df):
 
 
 def trigger_kinesis_event(table_list):
+    """
+    trigger a message about event to kinesis
+    :param table_list: list of tables
+    :return: None
+    """
     for table in table_list:
-
         print("Kinesis TX for {}".format(table))
 
 
 def apply_changes(table_in_df):
+    """
+    apply changes to dataframe
+    :param table_in_df: dataframe
+    :return: changed dataframe
+    """
     table_out_df = table_in_df
 
     return table_out_df

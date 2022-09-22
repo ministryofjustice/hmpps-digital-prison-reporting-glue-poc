@@ -100,16 +100,34 @@ records_of_interest = {1061, 873, 141, 150, 127, 128, 129}
 
 
 def get_table_location(database, table_name):
+    """
+    get table data location from glue catalogue
+    :param database: database name
+    :param table_name: table name
+    :return: full path to data
+    """
     boto_glue = boto3.client("glue")
     table_def = boto_glue.get_table(DatabaseName=database, Name=table_name)
     return table_def["Table"]["StorageDescriptor"]["Location"]
 
 
 def format_table_name(table_name):
+    """
+    format table name from <UPPERCASE SCHEMA>.<UPPERCASE TABLE NAME> to <lowercase table name>
+    :param table_name: SCHEMA.TABLE_NAME
+    :return: table_name
+    """
     return table_name.split(".")[1].lower()
 
 
 def update_schema(schema, with_event_type=False, prefix=False):
+    """
+    update schema to add process fields
+    :param schema: schema
+    :param with_event_type: true or false
+    :param prefix: for future use
+    :return: Structtype schema
+    """
     struct_list = schema.fields
     if with_event_type:
         struct_list.append(StructField("event_type", StringType(), True))
@@ -121,6 +139,11 @@ def update_schema(schema, with_event_type=False, prefix=False):
 
 
 def get_primary_key(table):
+    """
+    return primary key of dataset
+    :param table: table name
+    :return: primary key
+    """
     if table == "offenders":
         return "offender_id"
     if table == "offender_bookings":
@@ -128,11 +151,6 @@ def get_primary_key(table):
 
 
 temp_dataframe = None
-
-
-def get_target_table_name(gg_table_name):
-    _tt_name = gg_table_name.split(".")[1].lower()
-    return _tt_name
 
 
 def write_catalog(gluecontext, config, frame):
@@ -197,17 +215,25 @@ def read_table_to_df(gluecontext, database, table_name, file_format="parquet"):
 
 
 def read_delta_table(database, table_name):
-    # Write data as DELTA TABLE
+    """
+    Read in table as delta into dataframe
+    :param database: database_name
+    :param table_name: table_name
+    :return: dataframe
+    """
 
     frame = spark.read.format("delta").load(get_table_location(database, table_name))
     return frame
 
-    # Generate MANIFEST file for Athena/Catalog
-    # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path_delta"]))
-    # deltaTable.generate("symlink_format_manifest")
-
 
 def write_delta_table(database, table_name, frame):
+    """
+    write out dataframe as delta format table
+    :param database: database name
+    :param table_name: table name
+    :param frame: dataframe to write
+    :return: None
+    """
     # Write data as DELTA TABLE
     frame.write.format("delta").mode("overwrite").save(get_table_location(database, table_name))
 
@@ -392,6 +418,12 @@ def apply_events(row_in, key_field, event_dict):
 
 
 def get_distinct_column_values_from_df(frame, column):
+    """
+    select distinct values from column in frame
+    :param frame: dataframe
+    :param column: column of interest
+    :return: unique list
+    """
     out_list = []
 
     row_array = frame.select(column).distinct().collect()
@@ -402,6 +434,11 @@ def get_distinct_column_values_from_df(frame, column):
 
 
 def rename_columns(frame):
+    """
+    rename columns in frame (prefix with __)
+    :param frame: dataframe
+    :return: dataframe with renamed columns
+    """
     new_column_name_list = list(map(lambda x: "__{}".format(x), frame.columns))
     return frame.toDF(*new_column_name_list)
 
@@ -477,8 +514,12 @@ def show_bef_after_applied(df_to_consider, df_applied):
 
 
 def trigger_kinesis_event(table_list):
+    """
+    trigger a message about event to kinesis
+    :param table_list: list of tables
+    :return: None
+    """
     for table in table_list:
-        table = format_table_name(table_name=table)
         print("Kinesis TX for {}".format(table))
 
 

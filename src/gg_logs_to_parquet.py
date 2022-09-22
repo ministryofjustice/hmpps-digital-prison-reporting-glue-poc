@@ -42,12 +42,25 @@ USE_CATALOG = False
 
 
 def get_table_location(database, table_name):
+    """
+    get table data location from glue catalogue
+    :param database: database name
+    :param table_name: table name
+    :return: full path to data
+    """
     boto_glue = boto3.client("glue")
     table_def = boto_glue.get_table(DatabaseName=database, Name=table_name)
     return table_def["Table"]["StorageDescriptor"]["Location"]
 
 
 def read_catalog(gluecontext, database, tablename):
+    """
+    Read data via catalogue in dataframe containing data from table as defined in glue catalogue
+    :param gluecontext: context
+    :param database: database name
+    :param tablename: table name
+    :return: dataframe
+    """
     input_dydf = gluecontext.create_data_frame.from_catalog(
         database=database, table_name=tablename, transformation_ctx="df"
     )

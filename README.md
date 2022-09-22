@@ -74,6 +74,12 @@ Latency due to rewriting entire versions of datasets in order to upsert and dele
 
 #### Local Development or Execution
 
+- Clone this repo
+- install requirements
+```buildoutcfg
+make install
+```
+
 ## Running in Local Docker
 
 Aquire glue docker image.
