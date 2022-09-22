@@ -22,10 +22,11 @@
 - [x] acquire s3 bucket/key from glue catalog
 - [ ] perhaps combine into single python script
 - [ ] Add Kinesis TX event
-- [ ] Change to run as micro batch
+- [ ] Change to run as micro batch 
 - [ ] exception capture and reporting
 - [ ] update schema in glue 
-- [ ] retrieve schema from glue (currently aquired from target objects)
+- [ ] retrieve schema from glue (currently acquired from target objects)
+- [ ] refresh test data to reflect real world data
 
 ## Details
 
