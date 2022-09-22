@@ -40,9 +40,10 @@ apply goldengate events log to target
         8. Apply event log to step 7 sequentially to allow for multiple events on same record
         9. Union applied events with unconsidered records (5 and 8)
         10. Write to target
+        11. trigger kinesis
 
    Noites : To run in glue_etl docker
-        1. Copy this script to /jupyter_workspace/src
+        1. Copy this script to ~/jupyter_workspace/src
         3. execute with delta support (see readme) 
 
 
@@ -50,7 +51,10 @@ apply goldengate events log to target
         refactor methods into src/lib/
         enhance commentary
         resolve dynamic frame read/write catalog (requires glue catalog)
-        resolve dynamic frame read write to delta tables
+        resolve kinesis triggering
+        
+        step 1 currently reads from <table>_orig
+        step 10 writes to <table>
 
 
 """
@@ -496,6 +500,7 @@ def start():
 
     table_list = get_distinct_column_values_from_df(frame=df_event_log_in, column="table")
 
+    """ loop thru target tables"""
     for target_table_name in table_list:
         print(target_table_name)
 
@@ -590,7 +595,7 @@ def start():
         # show_table(df_table_in)
         # show_events(df_event_log)
         # show_table(df_table_out)
-
+    """11. trigger kinesis"""
     trigger_kinesis_event(table_list=table_list)
 
 

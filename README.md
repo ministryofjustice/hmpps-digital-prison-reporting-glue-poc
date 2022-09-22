@@ -19,10 +19,10 @@
 - [ ] dependabot.yml file
 - [ ] refactor code
 - [ ] change before and after fields in parquet to string (avoid large complex field)
-- [ ] add tx message on table change (kenesis)
-- [ ] acquire s3 bucket/key from glue catalog
+- [x] acquire s3 bucket/key from glue catalog
 - [ ] perhaps combine into single python script
 - [ ] Add Kinesis TX event
+- [ ] Change to run as micro batch
 
 ## Details
 
