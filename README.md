@@ -24,6 +24,7 @@
 - [ ] Add Kinesis TX event
 - [ ] Change to run as micro batch
 - [ ] exception capture and reporting
+- [ ] update schema in glue 
 
 ## Details
 
