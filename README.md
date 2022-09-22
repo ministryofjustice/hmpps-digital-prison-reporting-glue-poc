@@ -23,6 +23,7 @@
 - [ ] perhaps combine into single python script
 - [ ] Add Kinesis TX event
 - [ ] Change to run as micro batch
+- [ ] exception capture and reporting
 
 ## Details
 
