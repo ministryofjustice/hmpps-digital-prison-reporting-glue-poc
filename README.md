@@ -25,6 +25,7 @@
 - [ ] Change to run as micro batch
 - [ ] exception capture and reporting
 - [ ] update schema in glue 
+- [ ] retrieve schema from glue (currently aquired from target objects)
 
 ## Details
 
