@@ -1,0 +1,53 @@
+
+	{
+   "Table":{
+      "Name":"offenders_orig",
+      "DatabaseName":"dpr-glue-catalog-development-development",
+      "Description":"",
+      "CreateTime":datetime.datetime(2022,9,21,9,27,54,"tzinfo=tzlocal())",
+      "UpdateTime":datetime.datetime(2022,9,21,9,27,54,"tzinfo=tzlocal())",
+      "Retention":0,
+      "StorageDescriptor":{
+         "Columns":[
+
+         ],
+         "Location":"s3://dpr-demo-development-20220916083016121000000001/data/dummy/database/oms_owner/offenders/",
+         "InputFormat":"org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+         "OutputFormat":"org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+         "Compressed":false,
+         "NumberOfBuckets":0,
+         "SerdeInfo":{
+            "SerializationLibrary":"org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+         },
+         "SortColumns":[
+
+         ],
+         "Parameters":{
+            "serialization.format":"1"
+         },
+         "StoredAsSubDirectories":false
+      },
+      "PartitionKeys":[
+
+      ],
+      "TableType":"EXTERNAL_TABLE",
+      "Parameters":{
+         "classification":"parquet"
+      },
+      "CreatedBy":"arn:aws:sts::771283872747:assumed-role/AWSReservedSSO_modernisation-platform-developer_1425a99d62c4ce2b/frazerclayton@digital.justice.gov.uk",
+      "IsRegisteredWithLakeFormation":false,
+      "CatalogId":"771283872747"
+   },
+   "ResponseMetadata":{
+      "RequestId":"f6011b1b-5969-45ae-826a-3f5a32124751",
+      "HTTPStatusCode":200,
+      "HTTPHeaders":{
+         "date":"Thu, 22 Sep 2022 08:20:38 GMT",
+         "content-type":"application/x-amz-json-1.1",
+         "content-length":"1110",
+         "connection":"keep-alive",
+         "x-amzn-requestid":"f6011b1b-5969-45ae-826a-3f5a32124751"
+      },
+      "RetryAttempts":0
+   }
+}
