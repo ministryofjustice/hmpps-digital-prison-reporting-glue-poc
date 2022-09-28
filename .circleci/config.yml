@@ -79,9 +79,7 @@ workflows:
   version: 2
   plan_approve_apply:
     jobs:
-      - test_my_app:
-          jobs:
-            - build_and_test      
+      - pytest: 
       - plan-apply:
           context:
             - digital-prison-reporting-dev      
