@@ -1,12 +1,30 @@
 version: 2
+orbs:
+  python: circleci/python@2.0.3
+  heroku: circleci/heroku@1.2.6
 
 jobs:
+  pytest:
+    working_directory: /tmp/project
+    executor: python/default
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+      - run:
+          name: Run tests
+          command: python -m pytest
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
+
   plan-apply:
     working_directory: /tmp/project
     docker:
       - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
     steps:
-      - checkout
+#      - checkout
       - run:
           name: terraform init & plan
           command: |
