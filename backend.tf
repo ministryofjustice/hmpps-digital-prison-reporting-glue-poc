@@ -6,7 +6,7 @@ terraform {
     bucket               = "dpr-terraform-state-development"
     acl                  = "bucket-owner-full-control"   
     encrypt              = true
-    key                  = "terraform.tfstate"
+    key                  = "application/hmpps-digital-prison-reporting-glue-poc/terraform.tfstate"
     region               = "eu-west-2"
     workspace_key_prefix = "application/hmpps-digital-prison-reporting-glue-poc" 
   }
