@@ -4,6 +4,7 @@ terraform {
   # - S3 bucket name, which is created in modernisation-platform-account/s3.tf
   backend "s3" {
     bucket               = "digital-prison-reporting-terraform-state"
+    acl     = "bucket-owner-full-control"   
     encrypt              = true
     key                  = "terraform.tfstate"
     region               = "eu-west-2"
