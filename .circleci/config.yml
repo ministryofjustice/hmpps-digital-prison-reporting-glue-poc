@@ -23,7 +23,7 @@ jobs:
       - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
     steps:
       - attach_workspace:
-        at: ~/project     
+          at: ~/project     
       - run:
           name: terraform init & plan
           command: |
