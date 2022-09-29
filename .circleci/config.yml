@@ -30,7 +30,7 @@ jobs:
             terraform init -input=false
             terraform plan -out tfapply -var-file envs/dev/terraform.tfvars
       - persist_to_workspace:
-          root: .
+          root: ~/project
           paths:
             - .
 
@@ -45,7 +45,7 @@ jobs:
           command: |
             terraform apply -auto-approve tfapply
       - persist_to_workspace:
-          root: .
+          root: ~/project
           paths:
             - .
 
@@ -60,7 +60,7 @@ jobs:
           command: |
             terraform plan -destroy -out tfdestroy -var-file terraform.tfvars
       - persist_to_workspace:
-          root: .
+          root: ~/project
           paths:
             - .
 
@@ -74,6 +74,7 @@ jobs:
           name: terraform destroy
           command: |
             terraform apply -auto-approve tfdestroy
+            
 workflows:
   version: 2
   plan_approve_apply:
