@@ -23,7 +23,7 @@ jobs:
       - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
     steps:
       - attach_workspace:
-          at: ~/project     
+          at: ~/project
       - run:
           name: terraform init & plan
           command: |
@@ -85,14 +85,14 @@ workflows:
           context:
             - digital-prison-reporting-dev
           requires:
-            - pytest                 
+            - pytest
       - hold-apply:
           type: approval
           requires:
             - plan-apply
       - apply:
           context:
-            - digital-prison-reporting-dev        
+            - digital-prison-reporting-dev
           requires:
             - hold-apply
 #      - plan-destroy:
