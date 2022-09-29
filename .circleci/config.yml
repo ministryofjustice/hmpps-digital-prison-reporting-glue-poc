@@ -82,7 +82,9 @@ workflows:
       - pytest
       - plan-apply:
           context:
-            - digital-prison-reporting-dev      
+            - digital-prison-reporting-dev
+          requires:
+            - pytest                 
       - hold-apply:
           type: approval
           requires:
