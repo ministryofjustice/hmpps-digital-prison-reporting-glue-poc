@@ -90,6 +90,8 @@ workflows:
           requires:
             - plan-apply
       - apply:
+          context:
+            - digital-prison-reporting-dev        
           requires:
             - hold-apply
 #      - plan-destroy:
