@@ -1,11 +1,10 @@
 version: 2.1
 orbs:
   python: circleci/python@2.0.3
-  heroku: circleci/heroku@1.2.6
 
 jobs:
   pytest:
-    working_directory: /tmp/project
+    working_directory: ~/project
     executor: python/default
     steps:
       - checkout
@@ -20,10 +19,11 @@ jobs:
             - .
 
   plan-apply:
-    working_directory: /tmp/project
     docker:
       - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
     steps:
+      - attach_workspace:
+        at: ~/project     
       - run:
           name: terraform init & plan
           command: |
@@ -39,7 +39,7 @@ jobs:
       - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
     steps:
       - attach_workspace:
-          at: .
+          at: ~/project
       - run:
           name: terraform
           command: |
@@ -54,7 +54,7 @@ jobs:
       - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
     steps:
       - attach_workspace:
-          at: .
+          at: ~/project
       - run:
           name: terraform create destroy plan
           command: |
@@ -69,12 +69,12 @@ jobs:
       - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
     steps:
       - attach_workspace:
-          at: .
+          at: ~/project
       - run:
           name: terraform destroy
           command: |
             terraform apply -auto-approve tfdestroy
-            
+
 workflows:
   version: 2
   plan_approve_apply:
