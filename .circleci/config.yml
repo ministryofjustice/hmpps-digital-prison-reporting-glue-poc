@@ -24,12 +24,11 @@ jobs:
     docker:
       - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
     steps:
-#      - checkout
       - run:
           name: terraform init & plan
           command: |
             terraform init -input=false
-            terraform plan -out tfapply -var-file terraform.tfvars
+            terraform plan -out tfapply -var-file envs/dev/terraform.tfvars
       - persist_to_workspace:
           root: .
           paths:
@@ -90,13 +89,13 @@ workflows:
       - apply:
           requires:
             - hold-apply
-      - plan-destroy:
-          requires:
-            - apply
-      - hold-destroy:
-          type: approval
-          requires:
-            - plan-destroy
-      - destroy:
-          requires:
-            - hold-destroy
+#      - plan-destroy:
+#          requires:
+#            - apply
+#      - hold-destroy:
+#          type: approval
+#          requires:
+#            - plan-destroy
+#      - destroy:
+#          requires:
+#            - hold-destroy
