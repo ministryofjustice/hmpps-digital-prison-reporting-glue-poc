@@ -7,8 +7,6 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket_object" "sample_pycode" {
-    count       = var.sync_objects ? 1 : 0
-
     for_each    = fileset("src/", "*.py")
     bucket      = "arn:aws:s3:::dpr-glue-jobs-development-20220916083016134900000005"
     key         = "${var.project}/${each.value}"
