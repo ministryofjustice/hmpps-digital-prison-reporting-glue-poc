@@ -8,6 +8,5 @@ terraform {
     encrypt              = true
     key                  = "application/hmpps-digital-prison-reporting-glue-poc/terraform.tfstate"
     region               = "eu-west-2"
-    workspace_key_prefix = "application/hmpps-digital-prison-reporting-glue-poc" 
   }
 }

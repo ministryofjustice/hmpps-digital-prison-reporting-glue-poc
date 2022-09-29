@@ -27,6 +27,7 @@ jobs:
       - run:
           name: terraform init & plan
           command: |
+            terraform version
             terraform init -input=false
             terraform plan -out tfapply -var-file envs/dev/terraform.tfvars
       - persist_to_workspace:
