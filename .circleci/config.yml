@@ -1,0 +1,107 @@
+version: 2.1
+orbs:
+  python: circleci/python@2.0.3
+
+jobs:
+  pytest:
+    working_directory: ~/project
+    executor: python/default
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+      - run:
+          name: Run tests
+          command: python -m pytest
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
+
+  plan-apply:
+    docker:
+      - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
+    steps:
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: terraform init & plan
+          command: |
+            terraform version
+            terraform init -input=false
+            terraform plan -out tfapply -var-file envs/dev/terraform.tfvars
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
+
+  apply:
+    docker:
+      - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
+    steps:
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: terraform
+          command: |
+            terraform apply -auto-approve tfapply
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
+
+  plan-destroy:
+    docker:
+      - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
+    steps:
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: terraform create destroy plan
+          command: |
+            terraform plan -destroy -out tfdestroy -var-file terraform.tfvars
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
+
+  destroy:
+    docker:
+      - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
+    steps:
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: terraform destroy
+          command: |
+            terraform apply -auto-approve tfdestroy
+
+workflows:
+  version: 2
+  plan_approve_apply:
+    jobs:
+      - pytest
+      - plan-apply:
+          context:
+            - digital-prison-reporting-dev
+          requires:
+            - pytest
+      - hold-apply:
+          type: approval
+          requires:
+            - plan-apply
+      - apply:
+          context:
+            - digital-prison-reporting-dev
+          requires:
+            - hold-apply
+#      - plan-destroy:
+#          requires:
+#            - apply
+#      - hold-destroy:
+#          type: approval
+#          requires:
+#            - plan-destroy
+#      - destroy:
+#          requires:
+#            - hold-destroy
