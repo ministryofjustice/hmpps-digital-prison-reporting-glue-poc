@@ -8,6 +8,7 @@ jobs:
         environment:
           - ENV1: "value"
     steps:
+      - run: apt install git, ssh
       - checkout
       - run:
           name: install dependencies
