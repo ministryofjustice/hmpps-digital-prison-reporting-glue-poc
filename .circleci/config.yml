@@ -10,14 +10,14 @@ jobs:
     steps:
       - checkout
       - run:
-        name: install dependencies
-        command: |
-          python3 -m venv env
-          . env/bin/activate
-          pip3 install -r requirements.test.txt
+          name: install dependencies
+          command: |
+            python3 -m venv env
+            . env/bin/activate
+            pip3 install -r requirements.test.txt
       - run:
-        name: Run tests
-        command: python -m pytest -sv tests/          
+          name: Run tests
+          command: python -m pytest -sv tests/          
       - persist_to_workspace:
         root: ~/project
         paths:
