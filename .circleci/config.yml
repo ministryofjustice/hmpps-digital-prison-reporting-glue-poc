@@ -19,9 +19,9 @@ jobs:
           name: Run tests
           command: python -m pytest -sv tests/          
       - persist_to_workspace:
-        root: ~/project
-        paths:
-          - .
+          root: ~/project
+          paths:
+            - .
 
   plan-apply:
     docker:
