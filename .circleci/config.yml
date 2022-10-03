@@ -86,7 +86,7 @@ workflows:
   plan_approve_apply:
     jobs:
       - test-and-coverage:
-        name: "test-coverage"
+          name: "test-coverage"
       - plan-apply:
           context:
             - digital-prison-reporting-dev
