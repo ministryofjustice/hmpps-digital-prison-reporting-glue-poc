@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-  python: circleci/python@2.0.3
+  python: cimg/python:3.10.7
 
 jobs:
   pytest:
@@ -8,6 +8,7 @@ jobs:
     executor: python/default
     steps:
       - checkout
+      - run: python --version      
       - python/install-packages:
           pkg-manager: pip
       - run:
