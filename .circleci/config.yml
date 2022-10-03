@@ -1,26 +1,27 @@
 version: 2.1
 
 jobs:
-  pytest:
-    working_directory: ~/project  
+  test-and-coverage:
+    working_directory: ~/project
     docker:
-      - image: cimg/python:3.10.7
+      - image: circleci/python:3.7
+        environment:
+          - CC_TEST_REPORTER_ID: <your test reporter ID>
     steps:
       - checkout
-      - run: python --version      
       - run:
-        name: Install Python Dependencies
+        name: install dependencies
         command: |
           python3 -m venv env
           . env/bin/activate
-          pip3 install -r requirements.txt
+          pip3 install -r requirements.test.txt
       - run:
-          name: Run tests
-          command: python -m pytest -sv tests/
+        name: Run tests
+        command: python -m pytest -sv tests/          
       - persist_to_workspace:
-          root: ~/project
-          paths:
-            - .
+        root: ~/project
+        paths:
+          - .
 
   plan-apply:
     docker:
@@ -84,12 +85,13 @@ workflows:
   version: 2
   plan_approve_apply:
     jobs:
-      - pytest
+      - test-and-coverage:
+        name: "test-coverage"
       - plan-apply:
           context:
             - digital-prison-reporting-dev
           requires:
-            - pytest
+            - test-coverage
       - hold-apply:
           type: approval
           requires:
