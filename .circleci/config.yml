@@ -1,16 +1,19 @@
 version: 2.1
-orbs:
-  python: cimg/python@3.10.7
 
 jobs:
   pytest:
-    working_directory: ~/project
-    executor: python/default
+    working_directory: ~/project  
+    docker:
+      - image: cimg/python:3.10.7
     steps:
       - checkout
       - run: python --version      
-      - python/install-packages:
-          pkg-manager: pip
+      - run:
+        name: Install Python Dependencies
+        command: |
+           python3 -m venv env
+           . env/bin/activate
+           pip3 install -r requirements.txt
       - run:
           name: Run tests
           command: python -m pytest -sv tests/
