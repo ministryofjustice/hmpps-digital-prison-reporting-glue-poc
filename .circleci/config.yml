@@ -4,7 +4,7 @@ jobs:
   test-and-coverage:
     working_directory: ~/project
     docker:
-      - image: cimg/python:3.10.7 #ubuntu:latest
+      - image: cimg/python:3.10.7-browsers #ubuntu:latest
         environment:
           - ENV1: "value"
     steps:
