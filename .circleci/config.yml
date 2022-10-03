@@ -6,7 +6,7 @@ jobs:
     docker:
       - image: cimg/python:3.10.7
         environment:
-          - CC_TEST_REPORTER_ID: <your test reporter ID>
+          - ENV1: "value"
     steps:
       - checkout
       - run:
