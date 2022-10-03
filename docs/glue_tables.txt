@@ -1,0 +1,15 @@
+TABLES:
+
+offender_bookings_orig | s3://dpr-demo-development-20220916083016121000000001/data/dummy/database/oms_owner/offender_bookings/
+offenders_orig | s3://dpr-demo-development-20220916083016121000000001/data/dummy/database/oms_owner/offenders/
+
+offender_bookings | s3://dpr-structured-development-20220916083016132200000004/data/dummy/database/delta/oms_owner/offender_booking/
+offenders | s3://dpr-structured-development-20220916083016132200000004/data/dummy/database/delta/oms_owner/offenders/
+
+offender_bookings_curated | s3://dpr-curated-development-20220916083016128800000003/data/dummy/database/delta/oms_owner/offender_booking/
+offenders_curated | s3://dpr-curated-development-20220916083016128800000003/data/dummy/database/delta/oms_owner/offenders/
+
+
+goldengate_transac_raw_json_logs | s3://dpr-demo-development-20220916083016121000000001/data/dummy/kinesis/transac/json/oms_owner/events/
+
+goldengate_transac_parquet_logs | s3://dpr-landing-development-20220916083016124800000002/data/dummy/kinesis/transac/parquet/oms_owner/events/

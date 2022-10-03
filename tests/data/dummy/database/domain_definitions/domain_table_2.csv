@@ -1,0 +1,3 @@
+Status,Type,Domain,Dependancies,Target,Resolution
+Active,SQL,domain2,"offenders,offender_bookings",domain2_book_off,"select offender_bookings.offender_book_id,offenders.first_name||' '||offenders.last_name AS offender_name,offender_bookings.in_out_status from offender_bookings INNER JOIN offenders ON offender_bookings.offender_id = offenders.offender_id"
+Active,SQL,domain2,"atable,anothertable",domain2_book_off,"select atable.*,anothertable.last_name from atable INNER JOIN anothertable ON atable.key = anothertable.key"
