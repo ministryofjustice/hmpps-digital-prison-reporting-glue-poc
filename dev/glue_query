@@ -1,0 +1,12 @@
+_table_name=$2
+
+_field_list=$3
+
+_cond=$4
+
+if [ "$_cond" == "" ]
+then
+   _cond="1=1"
+fi
+
+docker run -it -v ~/.aws:/home/glue_user/.aws -v $JUPYTER_WORKSPACE_LOCATION:/home/glue_user/workspace/ -e AWS_PROFILE=$AWS_PROFILE -e DISABLE_SSL=true --rm -p 4040:4040 -p 18080:18080 --name glue_spark_submit amazon/aws-glue-libs:glue_libs_3.0.0_image_01 spark-submit --jars /home/glue_user/workspace/lib/delta-core_2.12-0.8.0.jar --conf spark.delta.logStore.class=org.apache.spark.sql.delta.storage.S3SingleDriverLogStore  /home/glue_user/workspace/src/$_script --JOB_NAME $_job_name --TABLE $_table_name --FIELDS $_field_list --WHERE $_cond
