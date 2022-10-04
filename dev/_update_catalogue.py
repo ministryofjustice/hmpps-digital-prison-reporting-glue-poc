@@ -56,7 +56,8 @@ def update_column_list_in_glue(database, table_name, columns):
     table_def["Table"].pop("CreatedBy")
     table_def["Table"].pop("IsRegisteredWithLakeFormation")
 
-    boto_glue.update_table(DatabaseName=database, TableInput=table_def["Table"])
+    boto_glue.update_table(DatabaseName=database,
+                           TableInput=table_def["Table"])
 
 
 def read_delta_table(database, table_name):
@@ -67,7 +68,8 @@ def read_delta_table(database, table_name):
     :return: dataframe
     """
 
-    frame = spark.read.format("delta").load(get_table_location(database, table_name))
+    frame = spark.read.format("delta").load(
+        get_table_location(database, table_name))
     return frame
 
 
@@ -95,7 +97,8 @@ def schema_to_columns(inputDF):
     for field in _schema_json["fields"]:
         if field["name"] in {"before", "after"}:
             field["type"] = "string"
-        column_list.append({"Name": field["name"], "Type": type_for(field["type"]), "Comment": "", "Parameters": {}})
+        column_list.append({"Name": field["name"], "Type": type_for(
+            field["type"]), "Comment": "", "Parameters": {}})
     return column_list
 
 
@@ -108,7 +111,8 @@ def start():
         print(get_table_location(DATABASE_NAME, table_name))
         # inputDF = read_table(glueContext, DATABASE_NAME, TABLE_NAME)
         inputDF = read_delta_table(DATABASE_NAME, table_name)
-        update_column_list_in_glue(DATABASE_NAME, table_name, schema_to_columns(inputDF))
+        update_column_list_in_glue(
+            DATABASE_NAME, table_name, schema_to_columns(inputDF))
 
 
 if __name__ == "__main__":

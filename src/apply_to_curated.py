@@ -87,7 +87,8 @@ def read_delta_table(database, table_name):
     :return: dataframe
     """
 
-    frame = spark.read.format("delta").load(get_table_location(database, table_name))
+    frame = spark.read.format("delta").load(
+        get_table_location(database, table_name))
     return frame
 
 
@@ -100,7 +101,8 @@ def write_delta_table(database, table_name, frame):
     :return: None
     """
     # Write data as DELTA TABLE
-    frame.write.format("delta").mode("overwrite").save(get_table_location(database, table_name))
+    frame.write.format("delta").mode("overwrite").save(
+        get_table_location(database, table_name))
 
     # Generate MANIFEST file for Athena/Catalog
     # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path"]))
@@ -175,13 +177,15 @@ def start():
         source_table = table_name
         target_table = "{}_curated".format(table_name)
 
-        df_table_in = read_delta_table(database=DATABASE_NAME, table_name=source_table)
+        df_table_in = read_delta_table(
+            database=DATABASE_NAME, table_name=source_table)
 
         """1. apply appropriate changes"""
         df_table_out = apply_changes(table_in_df=df_table_in)
 
         """2. Write to target"""
-        write_delta_table(database=DATABASE_NAME, table_name=target_table, frame=df_table_out)
+        write_delta_table(database=DATABASE_NAME,
+                          table_name=target_table, frame=df_table_out)
 
     """3. trigger kinesis"""
     trigger_kinesis_event(table_list=STRUCTURED_TABLES)
