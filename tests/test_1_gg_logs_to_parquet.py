@@ -14,7 +14,8 @@ def test_add_hash_drop_tokens(spark_session):
     local_df_i = add_hash_drop_tokens(frame=local_df_i, hash_fields=["after"])
 
     local_df_u = spark_session.read.json(read_path + "/updates/")
-    local_df_u = add_hash_drop_tokens(frame=local_df_u, hash_fields=["after", "before"])
+    local_df_u = add_hash_drop_tokens(
+        frame=local_df_u, hash_fields=["after", "before"])
 
     local_df_d = spark_session.read.json(read_path + "/deletes/")
     local_df_d = add_hash_drop_tokens(frame=local_df_d, hash_fields=["before"])
@@ -40,14 +41,17 @@ def test_union_dfs(spark_session):
     local_df_i = add_hash_drop_tokens(frame=local_df_i, hash_fields=["after"])
 
     local_df_u = spark_session.read.json(read_path + "/updates/")
-    local_df_u = add_hash_drop_tokens(frame=local_df_u, hash_fields=["after", "before"])
+    local_df_u = add_hash_drop_tokens(
+        frame=local_df_u, hash_fields=["after", "before"])
 
     local_df_d = spark_session.read.json(read_path + "/deletes/")
     local_df_d = add_hash_drop_tokens(frame=local_df_d, hash_fields=["before"])
 
-    local_df_out = union_dfs(prime_df=local_df_i, df_list=[local_df_u, local_df_d])
+    local_df_out = union_dfs(prime_df=local_df_i, df_list=[
+                             local_df_u, local_df_d])
 
-    assert local_df_out.count() == local_df_i.count() + local_df_u.count() + local_df_d.count()
+    assert local_df_out.count() == local_df_i.count() + \
+        local_df_u.count() + local_df_d.count()
 
     assert local_df_out.count() == 3897
 
@@ -60,14 +64,17 @@ def test_add_partitions_from_op_ts(spark_session):
     local_df_i = add_hash_drop_tokens(frame=local_df_i, hash_fields=["after"])
 
     local_df_u = spark_session.read.json(read_path + "/updates/")
-    local_df_u = add_hash_drop_tokens(frame=local_df_u, hash_fields=["after", "before"])
+    local_df_u = add_hash_drop_tokens(
+        frame=local_df_u, hash_fields=["after", "before"])
 
     local_df_d = spark_session.read.json(read_path + "/deletes/")
     local_df_d = add_hash_drop_tokens(frame=local_df_d, hash_fields=["before"])
 
-    local_df_out = union_dfs(prime_df=local_df_i, df_list=[local_df_u, local_df_d])
+    local_df_out = union_dfs(prime_df=local_df_i, df_list=[
+                             local_df_u, local_df_d])
 
-    local_df_out = add_partitions_from_op_ts(partition_by=PARTITION_BY, frame=local_df_out)
+    local_df_out = add_partitions_from_op_ts(
+        partition_by=PARTITION_BY, frame=local_df_out)
 
     assert local_df_out.select("part_date").filter(
         col("after.offender_id").isin({150}) & col("op_type").isin({"I"})

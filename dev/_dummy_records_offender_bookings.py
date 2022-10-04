@@ -43,7 +43,8 @@ output_path_table = (
     + config_dict["table"]
 )
 
-output_path_events = config_dict["target_bucket"] + "/" + config_dict["target_json"] + "/" + config_dict["schema"]
+output_path_events = config_dict["target_bucket"] + "/" + \
+    config_dict["target_json"] + "/" + config_dict["schema"]
 
 glueContext = GlueContext(SparkContext.getOrCreate())
 inputDF = glueContext.create_dynamic_frame_from_options(
@@ -90,7 +91,8 @@ for rec in inputs:
     global_dict["tokens"] = dict(R="AADPkvAAEAAEqL2AAA")
     global_dict["current_ts"] = str(datetime.datetime.now())
     global_dict["pos"] = "{:020d}".format(pos_time_delta)
-    global_dict["op_ts"] = str(new_timestamp) + "." + str(random.randint(1, 10))
+    global_dict["op_ts"] = str(new_timestamp) + "." + \
+        str(random.randint(1, 10))
     global_dict["before"] = {}
     global_dict["after"] = {}
     global_dict.pop("before")
@@ -112,13 +114,16 @@ for rec in inputs:
         global_dict["tokens"] = {}
         global_dict["tokens"] = dict(R="AADPkvAAEAAEqLzAAA")
         # print(global_dict["after"]["CREATE_DATETIME"]+timedelta(seconds=24)
-        new_timestamp = new_timestamp + datetime.timedelta(seconds=pos_time_delta)
+        new_timestamp = new_timestamp + \
+            datetime.timedelta(seconds=pos_time_delta)
 
-        global_dict["op_ts"] = str(new_timestamp) + "." + str(random.randint(1, 10))
+        global_dict["op_ts"] = str(new_timestamp) + \
+            "." + str(random.randint(1, 10))
         # global_dict["after"]["AUDIT_TIMESTAMP"] = str(new_timestamp) + '.500000'
         # global_dict["after"]["CREATE_DATETIME"] = str(new_timestamp) + '.000000'
         # global_dict["after"]["MODIFIED_DATETIME"] = str(new_timestamp) + ".000000"
-        global_dict["after"]["MODIFY_DATETIME"] = str(new_timestamp) + ".000000"
+        global_dict["after"]["MODIFY_DATETIME"] = str(
+            new_timestamp) + ".000000"
         global_dict["after"]["MODIFY_USER_ID"] = "FRAZERCLAYTON"
         # if global_dict["after"]["SEX_CODE"] == "male":
         #     global_dict["after"]["TITLE"] = "Mr"
@@ -137,7 +142,8 @@ for rec in inputs:
     # deletes
     if rec_count < 3:
         pos_time_delta = pos_time_delta + random.randint(1, 100000)
-        new_timestamp = new_timestamp + datetime.timedelta(seconds=pos_time_delta)
+        new_timestamp = new_timestamp + \
+            datetime.timedelta(seconds=pos_time_delta)
         recdict_before = recdict.copy()
         recdict_after = global_dict["after"].copy()
         global_dict["before"] = {}
@@ -150,7 +156,8 @@ for rec in inputs:
         else:
             global_dict["before"] = recdict_before
         global_dict["current_ts"] = str(datetime.datetime.now())
-        global_dict["op_ts"] = str(new_timestamp) + "." + str(random.randint(1, 10))
+        global_dict["op_ts"] = str(new_timestamp) + \
+            "." + str(random.randint(1, 10))
         global_dict["pos"] = "{:020d}".format(pos_time_delta)
         global_dict["op_type"] = "D"
         global_dict["tokens"] = {}

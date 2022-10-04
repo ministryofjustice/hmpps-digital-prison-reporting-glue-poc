@@ -94,9 +94,11 @@ def read_frame(gluecontext, database, tablename, format="parquet"):
     :return:None
     """
     if USE_CATALOG:
-        ret_df = read_catalog(gluecontext=gluecontext, database=database, tablename=tablename, format=format)
+        ret_df = read_catalog(
+            gluecontext=gluecontext, database=database, tablename=tablename, format=format)
     else:
-        ret_df = read_table(gluecontext=gluecontext, database=database, tablename=tablename, format=format)
+        ret_df = read_table(gluecontext=gluecontext,
+                            database=database, tablename=tablename, format=format)
 
     return ret_df
 
@@ -109,7 +111,8 @@ def write_catalog(gluecontext, database, tablename, frame, format="parquet"):
     :param frame: Glue Dynamic Frame
     :return:None
     """
-    additionaloptions = {"enableUpdateCatalog": True, "partitionKeys": PARTITION_BY}
+    additionaloptions = {"enableUpdateCatalog": True,
+                         "partitionKeys": PARTITION_BY}
 
     gluecontext.write_dynamic_frame_from_catalog(
         frame=frame,
@@ -149,9 +152,11 @@ def write_frame(gluecontext, database, tablename, frame, format="parquet"):
     :return:None
     """
     if USE_CATALOG:
-        write_catalog(gluecontext=gluecontext, database=database, tablename=tablename, frame=frame, format=format)
+        write_catalog(gluecontext=gluecontext, database=database,
+                      tablename=tablename, frame=frame, format=format)
     else:
-        write_table(gluecontext=gluecontext, database=database, tablename=tablename, frame=frame, format=format)
+        write_table(gluecontext=gluecontext, database=database,
+                    tablename=tablename, frame=frame, format=format)
 
 
 def add_hash_drop_tokens(frame, hash_fields):
@@ -180,12 +185,14 @@ def add_partitions_from_op_ts(partition_by, frame):
     for part in partition_by:
         if part == "part_date":
             new_frame = new_frame.withColumn(
-                "part_date", substring(col("op_ts"), op_ts_def[0], op_ts_def[1]).cast(DateType())
+                "part_date", substring(
+                    col("op_ts"), op_ts_def[0], op_ts_def[1]).cast(DateType())
             )
         if part == "part_time":
             new_frame = new_frame.withColumn(
                 "part_time",
-                date_format(substring(col("op_ts"), op_ts_def[0], op_ts_def[1]).cast(TimestampType()), "HH:mm"),
+                date_format(substring(col("op_ts"), op_ts_def[0], op_ts_def[1]).cast(
+                    TimestampType()), "HH:mm"),
             )
 
     return new_frame
@@ -239,20 +246,23 @@ def start():
         gluecontext=glueContext, database=DATABASE_NAME, tablename=GG_TRANSAC_EVENTS_TABLE_IN, format="json"
     )
 
-    local_df_out = add_hash_drop_tokens(frame=local_df_u, hash_fields=["after", "before"])
+    local_df_out = add_hash_drop_tokens(
+        frame=local_df_u, hash_fields=["after", "before"])
 
     """3. Union together"""
 
     """4. Add Partition field(s)"""
 
-    local_df_out = add_partitions_from_op_ts(partition_by=PARTITION_BY, frame=local_df_out)
+    local_df_out = add_partitions_from_op_ts(
+        partition_by=PARTITION_BY, frame=local_df_out)
 
     show_frame(local_df_out)
 
     """5. write to target"""
     out_dyf = DynamicFrame.fromDF(local_df_out, glueContext, "out_dyf")
 
-    write_frame(gluecontext=glueContext, database=DATABASE_NAME, tablename=GG_TRANSAC_EVENTS_TABLE_OUT, frame=out_dyf)
+    write_frame(gluecontext=glueContext, database=DATABASE_NAME,
+                tablename=GG_TRANSAC_EVENTS_TABLE_OUT, frame=out_dyf)
 
 
 if __name__ == "__main__":

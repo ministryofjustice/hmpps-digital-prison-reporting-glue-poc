@@ -14,7 +14,7 @@
 
 #### ToDo
 
-- [ ] Github Action 
+- [ ] Github Action
 - [ ] Deployment Strategy
 - [ ] dependabot.yml file
 - [ ] refactor code
@@ -22,15 +22,15 @@
 - [x] acquire s3 bucket/key from glue catalog
 - [ ] perhaps combine into single python script
 - [ ] Add Kinesis TX event
-- [ ] Change to run as micro batch 
+- [ ] Change to run as micro batch
 - [ ] exception capture and reporting
-- [ ] update schema in glue 
+- [ ] update schema in glue
 - [ ] retrieve schema from glue (currently acquired from target objects)
 - [ ] refresh test data to reflect real world data
 
 ## Details
 
-scripts in src prefixed _ are for dev and generating dummy records
+scripts in src prefixed \_ are for dev and generating dummy records
 
 gg_logs_to_parquet - converts goldengate logs to parquet
 apply_change_log_to_delta - applies changes in log to delta tables
@@ -56,10 +56,12 @@ Glue catalogue does not support delta lake
 Latency due to rewriting entire versions of datasets in order to upsert and delete
 
 ```
+
 #### Code Changes
 
 - Please keep all Code Commentary and Documentation up to date
 - Even with the seemingly self-evident the why! is as important as the what and how
+
 #### Branch Naming
 
 - Please use wherever possible the JIRA ticket as branch name.
@@ -76,6 +78,7 @@ Latency due to rewriting entire versions of datasets in order to upsert and dele
 
 - Clone this repo
 - install requirements
+
 ```buildoutcfg
 make install
 ```
@@ -88,7 +91,7 @@ Aquire glue docker image.
 docker pull amazon/aws-glue-libs:glue_libs_3.0.0_image_01
 ```
 
-Export AWS profile as AWS_PROFILE and JUPYTER_WORKSPACE_LOCATION 
+Export AWS profile as AWS_PROFILE and JUPYTER_WORKSPACE_LOCATION
 
 ```buildoutcfg
 export AWS_PROFILE=771283872747_modernisation-platform-developer
@@ -106,26 +109,29 @@ JupyterLab will be available at
 ```buildoutcfg
 http://localhost:8888/lab
 ```
+
 ###Run Script with delta support
 Download required jar from https://repo1.maven.org/maven2/io/delta/
 
-copy delta jar to  ~/jupyter_workspace/lib/delta-core_2.12-0.8.0.jar
+copy delta jar to ~/jupyter_workspace/lib/delta-core_2.12-0.8.0.jar
 copy scripts to ~/jupyter_workspace/src/
-
 
 ```buildoutcfg
 docker run -it -v ~/.aws:/home/glue_user/.aws -v $JUPYTER_WORKSPACE_LOCATION:/home/glue_user/workspace/ -e AWS_PROFILE=$AWS_PROFILE -e DISABLE_SSL=true --rm -p 4040:4040 -p 18080:18080 --name glue_spark_submit amazon/aws-glue-libs:glue_libs_3.0.0_image_01 spark-submit --jars /home/glue_user/workspace/lib/delta-core_2.12-0.8.0.jar --conf spark.delta.logStore.class=org.apache.spark.sql.delta.storage.S3SingleDriverLogStore  /home/glue_user/workspace/src/<scrpt_name>
 ```
 
-or use shell scripts  __run_local.sh
+or use shell scripts \_\_run_local.sh
 
 ## Unit Testing and Code Formatting
+
 Code formatting is performed with the command
+
 ```buildoutcfg
 make black
 ```
 
 Tests and code format checks are performed against spark with the command
+
 ```buildoutcfg
 make test
 ```

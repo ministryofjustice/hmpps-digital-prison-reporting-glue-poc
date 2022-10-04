@@ -50,7 +50,8 @@ def run_statement(active_statement):
     table_array = []
     # create views on tables
     for tablename in statement_dict["Dependancies"].split(","):
-        table_df = read_delta_table(database=DATABASE_NAME, table_name=tablename)
+        table_df = read_delta_table(
+            database=DATABASE_NAME, table_name=tablename)
         table_df.createOrReplaceTempView(tablename)
         table_array.append(table_df)
     sql_statement = statement_dict["Resolution"]
@@ -88,7 +89,8 @@ def filter_statements(statement_row, event_tables):
 def get_required_defs(domain_def_df, event_tables_unique):
     domain_def_schema = domain_def_df.schema
     df_active_statements = (
-        domain_def_df.rdd.map(lambda row: filter_statements(statement_row=row, event_tables=event_tables_unique))
+        domain_def_df.rdd.map(lambda row: filter_statements(
+            statement_row=row, event_tables=event_tables_unique))
         .toDF(schema=domain_def_schema)
         .filter(col("Status") == "ACTIVE")
     )
@@ -129,7 +131,8 @@ def schema_to_columns(inputDF):
     for field in _schema_json["fields"]:
         if field["name"] in {"before", "after"}:
             field["type"] = "string"
-        column_list.append({"Name": field["name"], "Type": type_for(field["type"]), "Comment": "", "Parameters": {}})
+        column_list.append({"Name": field["name"], "Type": type_for(
+            field["type"]), "Comment": "", "Parameters": {}})
     return column_list
 
 
@@ -151,7 +154,8 @@ def update_column_list_in_glue(database, table_name, columns):
     table_def["Table"].pop("CreatedBy")
     table_def["Table"].pop("IsRegisteredWithLakeFormation")
 
-    boto_glue.update_table(DatabaseName=database, TableInput=table_def["Table"])
+    boto_glue.update_table(DatabaseName=database,
+                           TableInput=table_def["Table"])
 
 
 def get_primary_key(table):
@@ -193,7 +197,8 @@ def read_delta_table(database, table_name):
     :return: dataframe
     """
 
-    frame = spark.read.format("delta").load(get_table_location(database, table_name))
+    frame = spark.read.format("delta").load(
+        get_table_location(database, table_name))
     return frame
 
 
@@ -206,7 +211,8 @@ def write_delta_table(database, table_name, frame):
     :return: None
     """
     # Write data as DELTA TABLE
-    frame.write.format("delta").mode("overwrite").save(get_table_location(database, table_name))
+    frame.write.format("delta").mode("overwrite").save(
+        get_table_location(database, table_name))
 
     # Generate MANIFEST file for Athena/Catalog
     # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path"]))
@@ -250,15 +256,18 @@ def start():
         gluecontext=glueContext, database=DATABASE_NAME, table_name=DOMAIN_DEFINITIONS_TABLE, file_format="csv"
     )
 
-    df_active_statements = get_required_defs(domain_def_df=domain_def_df, event_tables_unique=event_tables_unique)
+    df_active_statements = get_required_defs(
+        domain_def_df=domain_def_df, event_tables_unique=event_tables_unique)
 
     for definition in df_active_statements.rdd.collect():
         ret_dict = run_statement(active_statement=definition)
         print(ret_dict["target_table"])
         ret_dict["res_df"].show()
-        write_delta_table(database=DATABASE_NAME, table_name=ret_dict["target_table"], frame=ret_dict["res_df"])
+        write_delta_table(database=DATABASE_NAME,
+                          table_name=ret_dict["target_table"], frame=ret_dict["res_df"])
         update_column_list_in_glue(
-            DATABASE_NAME, table_name=ret_dict["target_table"], columns=schema_to_columns(ret_dict["res_df"])
+            DATABASE_NAME, table_name=ret_dict["target_table"], columns=schema_to_columns(
+                ret_dict["res_df"])
         )
 
 
