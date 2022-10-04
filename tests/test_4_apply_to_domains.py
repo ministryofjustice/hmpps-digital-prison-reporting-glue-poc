@@ -50,19 +50,20 @@ def test_apply_to_domain(spark_session):
 
     for definition in df_active_statements.rdd.collect():
 
-        ret_dict = run_statement(spark_session=spark_session, active_statement=definition)
+        ret_dict = run_statement(
+            spark_session=spark_session, active_statement=definition)
         if ret_dict["target_table"] == 'domain2_book_off':
 
             assert ret_dict["res_df"].select(col("offender_book_id"),
                                              col("offender_name"),
                                              col("in_out_status"),
                                              ).filter(col("offender_book_id").isin(93)).collect()[0] \
-                   == Row(offender_book_id=93, offender_name='David Martin', in_out_status='OUT')
+                == Row(offender_book_id=93, offender_name='David Martin', in_out_status='OUT')
             assert ret_dict["res_df"].select(col("offender_book_id"),
                                              col("offender_name"),
                                              col("in_out_status"),
                                              ).filter(col("offender_book_id").isin(88)).collect()[0] \
-                   == Row(offender_book_id=88, offender_name='Patrick Murphy', in_out_status='IN')
+                == Row(offender_book_id=88, offender_name='Patrick Murphy', in_out_status='IN')
         if ret_dict["target_table"] == 'domain1_off_book':
 
             assert ret_dict["res_df"].select(col("offender_id"),
@@ -71,16 +72,15 @@ def test_apply_to_domain(spark_session):
                                              col("booking_begin_date"),
                                              col("booking_end_date"),
                                              ).filter(col("offender_id").isin(9)).collect()[0] \
-                   == Row(offender_id=9, offender_name='David Martin',
-                          in_out_status='OUT', booking_begin_date=datetime.date(2019, 5, 7),
-                          booking_end_date=datetime.date(2022, 9, 24))
+                == Row(offender_id=9, offender_name='David Martin',
+                       in_out_status='OUT', booking_begin_date=datetime.date(2019, 5, 7),
+                       booking_end_date=datetime.date(2022, 9, 24))
             assert ret_dict["res_df"].select(col("offender_id"),
                                              col("offender_name"),
                                              col("in_out_status"),
                                              col("booking_begin_date"),
                                              col("booking_end_date"),
                                              ).filter(col("offender_id").isin(4)).collect()[0] \
-                   == Row(offender_id=4, offender_name='Patrick Murphy',
-                          in_out_status='IN', booking_begin_date=datetime.date(2011, 9, 29),
-                          booking_end_date=None)
-
+                == Row(offender_id=4, offender_name='Patrick Murphy',
+                       in_out_status='IN', booking_begin_date=datetime.date(2011, 9, 29),
+                       booking_end_date=None)
