@@ -37,7 +37,7 @@ apply_change_log_to_delta - applies changes in log to delta tables
 
 #### Confluence Page:
 
-[TBC]()
+[DPR Glue Process](https://dsdmoj.atlassian.net/wiki/spaces/DPR/pages/4166385725/Glue+ETL)
 
 #### Overview
 
