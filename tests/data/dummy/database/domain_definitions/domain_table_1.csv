@@ -1,0 +1,2 @@
+Status,Type,Domain,Dependancies,Target,Resolution
+Active,SQL,domain1,"offenders,offender_bookings",domain1_off_book,"select offenders.offender_id,offenders.first_name||' '||offenders.last_name as offender_name,offender_bookings.in_out_status,offender_bookings.booking_begin_date, offender_bookings.booking_end_date from offenders INNER JOIN offender_bookings ON offenders.offender_id = offender_bookings.offender_id"
