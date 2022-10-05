@@ -15,7 +15,8 @@ def run_statement(spark_session, active_statement, process_id):
     table_array = []
     # create views on tables
     for tablename in statement_dict["Dependancies"].split(","):
-        table_df = read_table(spark_session=spark_session, table_name=tablename)
+        table_df = read_table(spark_session=spark_session,
+                              table_name=tablename)
         table_df.createOrReplaceTempView(tablename)
         table_array.append(table_df)
     sql_statement = statement_dict["Resolution"]
@@ -42,9 +43,11 @@ def test_apply_to_domain(spark_session):
 
     event_tables = KINESIS_EVENTS_TABLES
     event_tables_unique = get_unique_list(event_tables)
-    assert event_tables_unique.sort() == ["offender_bookings", "anottable"].sort()
+    assert event_tables_unique.sort(
+    ) == ["offender_bookings", "anottable"].sort()
 
     domain_def_df = spark_session.read.option("header", True).csv(domain_def)
+
 
     df_active_statements = get_required_defs(domain_def_df=domain_def_df, event_tables_unique=event_tables_unique)
     process_id = generate_process_id()
@@ -82,5 +85,6 @@ def test_apply_to_domain(spark_session):
                           booking_end_date=None)
             assert ret_dict["res_df"].select(col("process_id"),
                                              ).collect()[0] == Row(process_id=process_id)
+
 
         ret_dict["res_df"].show()
