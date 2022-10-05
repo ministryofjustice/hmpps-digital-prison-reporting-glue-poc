@@ -214,7 +214,7 @@ def write_delta_table(database, table_name, frame):
     :return: None
     """
     # Write data as DELTA TABLE
-    frame.write.format("delta").mode("overwrite").save(get_table_location(database, table_name))
+    frame.write.format("delta").mode("overwrite").option("mergeSchema", "true").save(get_table_location(database, table_name))
 
     # Generate MANIFEST file for Athena/Catalog
     # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path"]))
