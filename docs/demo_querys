@@ -1,0 +1,49 @@
+#./glue_query read_glue_delta_table.py domain2_book_off offender_book_id,offender_name,in_out_status "offender_book_id>100"
+
+./glue_query read_glue_delta_table.py offenders offender_id,title,first_name,last_name,age,birth_date "offender_id>15"
+
+redirect glue raw event log table to s3://dpr-demo-development-20220916083016121000000001/demo/events/
+from s3://dpr-demo-development-20220916083016121000000001/data/dummy/kinesis/transac/json/oms_owner/events/
+
+python3 ./_demo_to_s3.py insert.json
+
+run process
+
+
+./glue_run gg_logs_to_parquet.py
+./glue_run apply_change_log_to_delta.py
+#./glue_run apply_to_curated.py
+
+./glue_query read_glue_delta_table.py offenders offender_id,title,first_name,last_name,age,birth_date "offender_id>15"
+
+delete s3://dpr-demo-development-20220916083016121000000001/demo/events/
+
+---------------------
+
+python3 ./_demo_to_s3.py update.json
+
+run process
+
+
+./glue_run gg_logs_to_parquet.py
+./glue_run apply_change_log_to_delta.py
+#./glue_run apply_to_curated.py
+
+./glue_query read_glue_delta_table.py offenders offender_id,title,first_name,last_name,age,birth_date "offender_id>15"
+
+delete s3://dpr-demo-development-20220916083016121000000001/demo/events/
+
+---------------------
+
+python3 ./_demo_to_s3.py delete.json
+
+run process
+
+
+./glue_run gg_logs_to_parquet.py
+./glue_run apply_change_log_to_delta.py
+#./glue_run apply_to_curated.py
+
+./glue_query read_glue_delta_table.py offenders offender_id,title,first_name,last_name,age,birth_date "offender_id>15"
+
+delete s3://dpr-demo-development-20220916083016121000000001/demo/events/

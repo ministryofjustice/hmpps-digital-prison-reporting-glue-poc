@@ -1,4 +1,5 @@
 import json
+import time
 
 import boto3
 
@@ -44,7 +45,13 @@ KINESIS_EVENTS_TABLES = ["offender_bookings", "offender_bookings", "anottable"]
 DOMAIN_DEFINITIONS_TABLE = "domain_definitions"
 
 
-def run_statement(active_statement):
+def generate_process_id():
+    epoch_t = t = int(time.time() * 1000)
+
+    return epoch_t
+
+
+def run_statement(active_statement, process_id):
     statement_dict = active_statement.asDict()
     res_df_array = []
     table_array = []
@@ -56,6 +63,7 @@ def run_statement(active_statement):
         table_array.append(table_df)
     sql_statement = statement_dict["Resolution"]
     res_df = spark.sql(sql_statement)
+    res_df = res_df.withColumn(colName="process_id", col=lit(process_id))
     res_dict = {"target_table": statement_dict["Target"], "res_df": res_df}
     return res_dict
 
@@ -211,8 +219,9 @@ def write_delta_table(database, table_name, frame):
     :return: None
     """
     # Write data as DELTA TABLE
-    frame.write.format("delta").mode("overwrite").save(
-        get_table_location(database, table_name))
+
+    frame.write.format("delta").mode("overwrite").option(
+        "mergeSchema", "true").save(get_table_location(database, table_name))
 
     # Generate MANIFEST file for Athena/Catalog
     # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path"]))
@@ -258,9 +267,11 @@ def start():
 
     df_active_statements = get_required_defs(
         domain_def_df=domain_def_df, event_tables_unique=event_tables_unique)
+    process_id = generate_process_id()
 
     for definition in df_active_statements.rdd.collect():
-        ret_dict = run_statement(active_statement=definition)
+        ret_dict = run_statement(
+            active_statement=definition, process_id=process_id)
         print(ret_dict["target_table"])
         ret_dict["res_df"].show()
         write_delta_table(database=DATABASE_NAME,
