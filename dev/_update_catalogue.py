@@ -129,7 +129,6 @@ def start():
                                    columns=schema_to_columns(inputDF), pk=table_pks[table_name])
 
 
-
 if __name__ == "__main__":
     from pyspark.shell import spark
 

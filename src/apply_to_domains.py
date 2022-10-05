@@ -220,8 +220,8 @@ def write_delta_table(database, table_name, frame):
     """
     # Write data as DELTA TABLE
 
-    frame.write.format("delta").mode("overwrite").option("mergeSchema", "true").save(get_table_location(database, table_name))
-
+    frame.write.format("delta").mode("overwrite").option(
+        "mergeSchema", "true").save(get_table_location(database, table_name))
 
     # Generate MANIFEST file for Athena/Catalog
     # deltaTable = DeltaTable.forPath(spark, "s3://{}/".format(config["path"]))
@@ -265,11 +265,13 @@ def start():
         gluecontext=glueContext, database=DATABASE_NAME, table_name=DOMAIN_DEFINITIONS_TABLE, file_format="csv"
     )
 
-    df_active_statements = get_required_defs(domain_def_df=domain_def_df, event_tables_unique=event_tables_unique)
+    df_active_statements = get_required_defs(
+        domain_def_df=domain_def_df, event_tables_unique=event_tables_unique)
     process_id = generate_process_id()
 
     for definition in df_active_statements.rdd.collect():
-        ret_dict = run_statement(active_statement=definition, process_id=process_id)
+        ret_dict = run_statement(
+            active_statement=definition, process_id=process_id)
         print(ret_dict["target_table"])
         ret_dict["res_df"].show()
         write_delta_table(database=DATABASE_NAME,
